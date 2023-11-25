@@ -16,7 +16,7 @@ RUN apk add --no-cache wget && \
 RUN ./gradlew clean bootJar
 
 # Make port 8080 available to the world outside this container
-EXPOSE 8000
+EXPOSE 8080
 
 # Run the application when the container launches
 CMD ["java", "-Dloader.path=.", "-jar", "fineract-provider/build/libs/fineract-provider-0.1.0-SNAPSHOT.jar"]
