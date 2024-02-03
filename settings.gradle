@@ -49,9 +49,11 @@ buildCache {
 
 rootProject.name='fineract'
 include ':fineract-core'
+include ':fineract-accounting'
 include ':fineract-provider'
 include ':fineract-investor'
 include ':fineract-loan'
+include ':fineract-savings'
 include ':fineract-war'
 include ':integration-tests'
 include ':twofactor-tests'
