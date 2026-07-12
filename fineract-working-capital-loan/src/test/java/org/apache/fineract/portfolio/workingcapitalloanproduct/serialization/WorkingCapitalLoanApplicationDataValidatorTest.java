@@ -49,6 +49,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.ExpectedDisbursementDate
 import org.apache.fineract.portfolio.workingcapitalloan.WorkingCapitalLoanConstants;
 import org.apache.fineract.portfolio.workingcapitalloan.repository.WorkingCapitalLoanRepository;
 import org.apache.fineract.portfolio.workingcapitalloan.serialization.WorkingCapitalLoanApplicationDataValidator;
+import org.apache.fineract.portfolio.workingcapitalloannearbreach.validator.WorkingCapitalNearBreachParseAndValidator;
 import org.apache.fineract.portfolio.workingcapitalloanproduct.WorkingCapitalLoanProductConstants;
 import org.apache.fineract.portfolio.workingcapitalloanproduct.domain.WorkingCapitalLoanProduct;
 import org.apache.fineract.portfolio.workingcapitalloanproduct.repository.WorkingCapitalLoanProductRepository;
@@ -78,6 +79,8 @@ class WorkingCapitalLoanApplicationDataValidatorTest {
     private ExpectedDisbursementDateValidator expectedDisbursementDateValidator;
     @Mock
     private WorkingCapitalPaymentAllocationDataValidator paymentAllocationDataValidator;
+    @Mock
+    private WorkingCapitalNearBreachParseAndValidator workingCapitalNearBreachValidator;
 
     private WorkingCapitalLoanApplicationDataValidator validator;
 
@@ -90,7 +93,7 @@ class WorkingCapitalLoanApplicationDataValidatorTest {
 
         final FromJsonHelper fromApiJsonHelper = new FromJsonHelper();
         validator = new WorkingCapitalLoanApplicationDataValidator(fromApiJsonHelper, paymentAllocationDataValidator, productRepository,
-                clientRepository, workingCapitalLoanRepository, expectedDisbursementDateValidator);
+                clientRepository, workingCapitalLoanRepository, expectedDisbursementDateValidator, workingCapitalNearBreachValidator);
 
         final Client client = createMockClient();
         final Office office = org.mockito.Mockito.mock(Office.class);
@@ -158,8 +161,8 @@ class WorkingCapitalLoanApplicationDataValidatorTest {
     }
 
     @Test
-    void testValidateForCreate_WithMissingTotalPayment_ShouldThrowException() {
-        final JsonCommand command = jsonCommand(createJsonWithoutField(WorkingCapitalLoanConstants.totalPaymentParamName));
+    void testValidateForCreate_WithMissingtotalPaymentVolume_ShouldThrowException() {
+        final JsonCommand command = jsonCommand(createJsonWithoutField(WorkingCapitalLoanConstants.totalPaymentVolumeParamName));
         assertThrows(PlatformApiDataValidationException.class, () -> validator.validateForCreate(command));
     }
 
@@ -255,7 +258,7 @@ class WorkingCapitalLoanApplicationDataValidatorTest {
         json.addProperty(WorkingCapitalLoanConstants.productIdParameterName, PRODUCT_ID);
         json.addProperty(WorkingCapitalLoanConstants.principalAmountParamName, 5000);
         json.addProperty(WorkingCapitalLoanProductConstants.periodPaymentRateParamName, 1.0);
-        json.addProperty(WorkingCapitalLoanConstants.totalPaymentParamName, 5500);
+        json.addProperty(WorkingCapitalLoanConstants.totalPaymentVolumeParamName, 5500);
         json.addProperty(WorkingCapitalLoanConstants.expectedDisbursementDateParameterName, expectedDate.toString());
         return json;
     }

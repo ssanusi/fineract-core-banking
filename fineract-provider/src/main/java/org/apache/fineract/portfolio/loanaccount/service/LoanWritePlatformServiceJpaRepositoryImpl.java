@@ -51,6 +51,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.fineract.cob.domain.LoanAccountLock;
 import org.apache.fineract.cob.exceptions.AccountLockCannotBeOverruledException;
 import org.apache.fineract.cob.service.AccountLockService;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
@@ -268,7 +269,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private final PostDatedChecksRepository postDatedChecksRepository;
     private final LoanRepaymentScheduleInstallmentRepository loanRepaymentScheduleInstallmentRepository;
     private final LoanLifecycleStateMachine loanLifecycleStateMachine;
-    private final AccountLockService loanAccountLockService;
+    private final AccountLockService<LoanAccountLock> loanAccountLockService;
     private final ExternalIdFactory externalIdFactory;
     private final LoanAccrualTransactionBusinessEventService loanAccrualTransactionBusinessEventService;
     private final ErrorHandler errorHandler;
@@ -432,6 +433,10 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 if (isAccountTransfer && loan.shouldCreateStandingInstructionAtDisbursement()) {
                     final PortfolioAccountData linkedSavingsAccountData = this.accountAssociationsReadPlatformService
                             .retriveLoanLinkedAssociation(loanId);
+                    if (linkedSavingsAccountData == null) {
+                        throw new LinkedAccountRequiredException("loan.disburse.downpayment",
+                                "Loan with id:" + loanId + " requires a linked savings account for the down payment transfer", loanId);
+                    }
                     final SavingsAccount fromSavingsAccount = null;
                     final boolean isRegularTransaction = true;
                     final boolean isExceptionForBalanceCheck = false;
@@ -482,6 +487,10 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
         for (final Map.Entry<Long, BigDecimal> entrySet : disBuLoanCharges.entrySet()) {
             final PortfolioAccountData savingAccountData = this.accountAssociationsReadPlatformService.retriveLoanLinkedAssociation(loanId);
+            if (savingAccountData == null) {
+                throw new LinkedAccountRequiredException("loan.disburse.charge",
+                        "Loan with id:" + loanId + " has a charge payable by account transfer but no linked savings account", loanId);
+            }
             final SavingsAccount fromSavingsAccount = null;
             final boolean isRegularTransaction = true;
             final boolean isExceptionForBalanceCheck = false;
@@ -829,6 +838,11 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             for (final Map.Entry<Long, BigDecimal> entrySet : disBuLoanCharges.entrySet()) {
                 final PortfolioAccountData savingAccountData = this.accountAssociationsReadPlatformService
                         .retriveLoanLinkedAssociation(loan.getId());
+                if (savingAccountData == null) {
+                    throw new LinkedAccountRequiredException("loan.disburse.charge",
+                            "Loan with id:" + loan.getId() + " has a charge payable by account transfer but no linked savings account",
+                            loan.getId());
+                }
                 final SavingsAccount fromSavingsAccount = null;
                 final boolean isRegularTransaction = true;
                 final boolean isExceptionForBalanceCheck = false;
@@ -1845,36 +1859,31 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
         final Long fromLoanOfficerId = command.longValueOfParameterNamed("fromLoanOfficerId");
         final Long toLoanOfficerId = command.longValueOfParameterNamed("toLoanOfficerId");
-        final String[] loanIds = command.arrayValueOfParameterNamed("loans");
+        final String[] loanIdsAsStr = command.arrayValueOfParameterNamed("loans");
+        List<Long> listLoanIds = Arrays.stream(loanIdsAsStr).map(Long::parseLong).toList();
 
         final LocalDate dateOfLoanOfficerAssignment = command.localDateValueOfParameterNamed("assignmentDate");
 
         final Staff fromLoanOfficer = this.loanAssembler.findLoanOfficerByIdIfProvided(fromLoanOfficerId);
         final Staff toLoanOfficer = this.loanAssembler.findLoanOfficerByIdIfProvided(toLoanOfficerId);
-        List<Long> lockedLoanIds = new ArrayList<>();
 
-        for (final String loanIdString : loanIds) {
-            final Long loanId = Long.valueOf(loanIdString);
+        if (loanAccountLockService.isAnyLoanHardLocked(listLoanIds)) {
+            throw new AccountLockCannotBeOverruledException("There are hard-locked loan accounts in the bulk loan reassignment");
+        }
+
+        for (final Long loanId : listLoanIds) {
             final Loan loan = this.loanAssembler.assembleFrom(loanId);
-            if (loanAccountLockService.isLoanHardLocked(loanId)) {
-                lockedLoanIds.add(loanId);
-            } else {
-                businessEventNotifierService.notifyPreBusinessEvent(new LoanReassignOfficerBusinessEvent(loan));
-                checkClientOrGroupActive(loan);
+            businessEventNotifierService.notifyPreBusinessEvent(new LoanReassignOfficerBusinessEvent(loan));
+            checkClientOrGroupActive(loan);
 
-                if (!loan.hasLoanOfficer(fromLoanOfficer)) {
-                    throw new LoanOfficerAssignmentException(loanId, fromLoanOfficerId);
-                }
-
-                loanOfficerService.reassignLoanOfficer(loan, toLoanOfficer, dateOfLoanOfficerAssignment);
-                saveLoanWithDataIntegrityViolationChecks(loan);
-                businessEventNotifierService.notifyPostBusinessEvent(new LoanReassignOfficerBusinessEvent(loan));
+            if (!loan.hasLoanOfficer(fromLoanOfficer)) {
+                throw new LoanOfficerAssignmentException(loanId, fromLoanOfficerId);
             }
+
+            loanOfficerService.reassignLoanOfficer(loan, toLoanOfficer, dateOfLoanOfficerAssignment);
+            saveLoanWithDataIntegrityViolationChecks(loan);
+            businessEventNotifierService.notifyPostBusinessEvent(new LoanReassignOfficerBusinessEvent(loan));
         }
-        if (!lockedLoanIds.isEmpty()) {
-            throw new AccountLockCannotBeOverruledException("There are hard-lcoked loan accounts: " + lockedLoanIds);
-        }
-        this.loanRepositoryWrapper.flush();
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
@@ -2409,7 +2418,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     public void fallbackRecalculateInterest(Throwable t) {
         // NOTE: allow caller to catch the exceptions
         // NOTE: wrap throwable only if really necessary
-        throw errorHandler.getMappable(t, null, null, "loan.recalculateinterest");
+        throw ErrorHandler.getMappable(t, null, null, "loan.recalculateinterest");
     }
 
     @Override

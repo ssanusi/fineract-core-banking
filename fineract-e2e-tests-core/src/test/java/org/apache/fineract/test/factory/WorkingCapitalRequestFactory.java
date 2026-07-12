@@ -34,7 +34,6 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.client.feign.FineractFeignClient;
 import org.apache.fineract.client.models.DelinquencyBucketRequest;
-import org.apache.fineract.client.models.DelinquencyBucketResponse;
 import org.apache.fineract.client.models.MinimumPaymentPeriodAndRule;
 import org.apache.fineract.client.models.PaymentAllocationOrder;
 import org.apache.fineract.client.models.PostAllowAttributeOverrides;
@@ -43,12 +42,19 @@ import org.apache.fineract.client.models.PostWorkingCapitalLoanProductsRequest;
 import org.apache.fineract.client.models.PostWorkingCapitalLoanProductsRequest.AccountingRuleEnum;
 import org.apache.fineract.client.models.PostWorkingCapitalLoanTransactionsRequest;
 import org.apache.fineract.client.models.PutWorkingCapitalLoanProductsProductIdRequest;
+import org.apache.fineract.client.models.WorkingCapitalBreachData;
 import org.apache.fineract.client.models.WorkingCapitalBreachRequest;
+import org.apache.fineract.client.models.WorkingCapitalNearBreachData;
+import org.apache.fineract.client.models.WorkingCapitalNearBreachRequest;
+import org.apache.fineract.test.data.DelinquencyBucket;
 import org.apache.fineract.test.data.accounttype.AccountTypeResolver;
 import org.apache.fineract.test.data.accounttype.DefaultAccountType;
+import org.apache.fineract.test.data.delinquency.DelinquencyBucketResolver;
 import org.apache.fineract.test.data.delinquency.DelinquencyBucketType;
 import org.apache.fineract.test.data.delinquency.DelinquencyFrequencyType;
 import org.apache.fineract.test.data.delinquency.DelinquencyMinimumPayment;
+import org.apache.fineract.test.data.workingcapitalproduct.WorkingCapitalBreachCalculationType;
+import org.apache.fineract.test.data.workingcapitalproduct.WorkingCapitalBreachFrequencyType;
 import org.apache.fineract.test.helper.Utils;
 import org.springframework.stereotype.Component;
 
@@ -59,26 +65,35 @@ public class WorkingCapitalRequestFactory {
     private final LoanProductsRequestFactory loanProductsRequestFactory;
     private final FineractFeignClient fineractClient;
     private final AccountTypeResolver accountTypeResolver;
+    private final DelinquencyBucketResolver delinquencyBucketResolver;
 
     public static final String WCLP_NAME_PREFIX = "WCLP-";
     public static final String WCLP_DESCRIPTION = "Working Capital Loan Product";
-    public static final String DEFAULT_WC_DELINQUENCY_BUCKET_NAME = "Default Working Capital delinquency bucket";
-    public static final String PENALTY = "PENALTY";
-    public static final String FEE = "FEE";
-    public static final String PRINCIPAL = "PRINCIPAL";
+    public static final String DEFAULT_WC_BREACH_NAME = "Default Working Capital breach";
+    public static final String DEFAULT_WC_NEAR_BREACH_NAME = "Default Working Capital near breach";
+    public static final String DUE_PENALTY = "DUE_PENALTY";
+    public static final String DUE_FEE = "DUE_FEE";
+    public static final String DUE_PRINCIPAL = "DUE_PRINCIPAL";
+    public static final String IN_ADVANCE_PENALTY = "IN_ADVANCE_PENALTY";
+    public static final String IN_ADVANCE_FEE = "IN_ADVANCE_FEE";
+    public static final String IN_ADVANCE_PRINCIPAL = "IN_ADVANCE_PRINCIPAL";
+
     public static final Integer DEFAULT_WC_BREACH_FREQUENCY = 2;
-    public static final String DEFAULT_WC_BREACH_FREQUENCY_TYPE = "MONTHS";
-    public static final String DEFAULT_WC_BREACH_AMOUNT_CALCULATION_TYPE = "PERCENTAGE";
+    public static final String DEFAULT_WC_BREACH_FREQUENCY_TYPE = WorkingCapitalBreachFrequencyType.MONTHS.getCode();
+    public static final String DEFAULT_WC_BREACH_AMOUNT_CALCULATION_TYPE = WorkingCapitalBreachCalculationType.PERCENTAGE.getCode();
     public static final BigDecimal DEFAULT_WC_BREACH_AMOUNT = new BigDecimal("1.23");
     public static final String DEFAULT_WC_BREACH_NAME_PREFIX = "WCB-";
+    public static final Integer DEFAULT_WC_NEAR_BREACH_FREQUENCY = 12;
+    public static final String DEFAULT_WC_NEAR_BREACH_FREQUENCY_TYPE = WorkingCapitalBreachFrequencyType.DAYS.getCode();
+    public static final BigDecimal DEFAULT_WC_NEAR_BREACH_THRESHOLD = new BigDecimal("70.23");
 
-    public PostWorkingCapitalLoanProductsRequest defaultWorkingCapitalLoanProductRequestWithCashAccounting() {
+    public PostWorkingCapitalLoanProductsRequest defaultWorkingCapitalLoanProductRequestWithAccrualAccounting() {
         return defaultWorkingCapitalLoanProductRequest()//
-                .accountingRule(AccountingRuleEnum.CASH_BASED)//
+                .accountingRule(AccountingRuleEnum.ACC_DEF_REV_AM)//
                 .fundSourceAccountId(accountTypeResolver.resolve(DefaultAccountType.SUSPENSE_CLEARING_ACCOUNT))//
                 .loanPortfolioAccountId(accountTypeResolver.resolve(DefaultAccountType.LOANS_RECEIVABLE))//
                 .transfersInSuspenseAccountId(accountTypeResolver.resolve(DefaultAccountType.TRANSFER_IN_SUSPENSE_ACCOUNT))//
-                .deferredIncomeLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.DEFERRED_CAPITALIZED_INCOME))//
+                .deferredIncomeLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.DEFERRED_INTEREST_REVENUE))//
                 .incomeFromDiscountFeeAccountId(accountTypeResolver.resolve(DefaultAccountType.INTEREST_INCOME))//
                 .incomeFromFeeAccountId(accountTypeResolver.resolve(DefaultAccountType.FEE_INCOME))//
                 .incomeFromPenaltyAccountId(accountTypeResolver.resolve(DefaultAccountType.FEE_INCOME))//
@@ -91,15 +106,18 @@ public class WorkingCapitalRequestFactory {
                 .incomeFromChargeOffFeesAccountId(accountTypeResolver.resolve(DefaultAccountType.FEE_CHARGE_OFF))//
                 .incomeFromChargeOffPenaltyAccountId(accountTypeResolver.resolve(DefaultAccountType.FEE_CHARGE_OFF))//
                 .chargeOffExpenseAccountId(accountTypeResolver.resolve(DefaultAccountType.CREDIT_LOSS_BAD_DEBT))//
-                .chargeOffFraudExpenseAccountId(accountTypeResolver.resolve(DefaultAccountType.CREDIT_LOSS_BAD_DEBT_FRAUD));//
+                .chargeOffFraudExpenseAccountId(accountTypeResolver.resolve(DefaultAccountType.CREDIT_LOSS_BAD_DEBT_FRAUD))//
+                .receivableFeeAccountId(accountTypeResolver.resolve(DefaultAccountType.INTEREST_FEE_RECEIVABLE))//
+                .receivablePenaltyAccountId(accountTypeResolver.resolve(DefaultAccountType.INTEREST_FEE_RECEIVABLE));//
     }
 
     /**
-     * Creates a Cash based accounting request where optional Income-type GL accounts are overridden with distinct (but
-     * still type-correct) accounts to verify each mapping is stored and returned independently.
+     * Creates a Accrual with deferred revenue amortization request where optional Income-type GL accounts are
+     * overridden with distinct (but still type-correct) accounts to verify each mapping is stored and returned
+     * independently.
      */
-    public PostWorkingCapitalLoanProductsRequest defaultWorkingCapitalLoanProductRequestWithDistinctCashAccountingMappings() {
-        return defaultWorkingCapitalLoanProductRequestWithCashAccounting()//
+    public PostWorkingCapitalLoanProductsRequest defaultWorkingCapitalLoanProductRequestWithDistinctAccrualAccountingMappings() {
+        return defaultWorkingCapitalLoanProductRequestWithAccrualAccounting()//
                 .incomeFromPenaltyAccountId(accountTypeResolver.resolve(DefaultAccountType.RECOVERIES))//
                 .incomeFromGoodwillCreditFeesAccountId(accountTypeResolver.resolve(DefaultAccountType.INTEREST_INCOME_CHARGE_OFF))//
                 .incomeFromGoodwillCreditPenaltyAccountId(accountTypeResolver.resolve(DefaultAccountType.FEE_INCOME))//
@@ -129,13 +147,13 @@ public class WorkingCapitalRequestFactory {
                 .maxPrincipal(new BigDecimal(100000))//
                 .amortizationType(PostWorkingCapitalLoanProductsRequest.AmortizationTypeEnum.EIR)//
                 .npvDayCount(DAYS_IN_YEAR_TYPE_360)//
-                .delinquencyBucketId(getWCDelinquencyBucketIdByName(DEFAULT_WC_DELINQUENCY_BUCKET_NAME))//
+                .delinquencyBucketId(delinquencyBucketResolver.resolve(DelinquencyBucket.WC_DELINQUENCY_BUCKET))//
                 .dateFormat(DATE_FORMAT)//
                 .locale(LOCALE_EN)//
                 .accountingRule(AccountingRuleEnum.NONE)//
                 .paymentAllocation(List.of(//
                         createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(),
-                                List.of(PENALTY, FEE, PRINCIPAL))));//
+                                List.of(DUE_PENALTY, DUE_FEE, DUE_PRINCIPAL, IN_ADVANCE_PENALTY, IN_ADVANCE_FEE, IN_ADVANCE_PRINCIPAL))));//
     }
 
     public PostWorkingCapitalLoanProductsRequest defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest() {
@@ -150,12 +168,34 @@ public class WorkingCapitalRequestFactory {
                 .allowAttributeOverrides(allowAttributeOverrides);
     }
 
+    public PostWorkingCapitalLoanProductsRequest defaultWorkingCapitalLoanProductBreachRequest() {
+        String name = Utils.randomStringGenerator(WCLP_NAME_PREFIX, 10);
+        String shortName = loanProductsRequestFactory.generateShortNameSafely();
+
+        Long breachId = getWCBreachIdByName(DEFAULT_WC_BREACH_NAME);
+        return defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest().name(name)//
+                .shortName(shortName)//
+                .breachId(breachId);
+    }
+
+    public PostWorkingCapitalLoanProductsRequest defaultWorkingCapitalLoanProductBreachNearBreachRequest() {
+        String name = Utils.randomStringGenerator(WCLP_NAME_PREFIX, 10);
+        String shortName = loanProductsRequestFactory.generateShortNameSafely();
+
+        Long breachId = getWCBreachIdByName(DEFAULT_WC_BREACH_NAME);
+        Long nearBreachId = getWCNearBreachIdByName(DEFAULT_WC_NEAR_BREACH_NAME);
+        return defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest().name(name)//
+                .shortName(shortName)//
+                .breachId(breachId) //
+                .nearBreachId(nearBreachId); //
+    }
+
     public PutWorkingCapitalLoanProductsProductIdRequest defaultWorkingCapitalLoanProductRequestUpdate() {
         String name = Utils.randomStringGenerator(WCLP_NAME_PREFIX, 10);
         String shortName = loanProductsRequestFactory.generateShortNameSafely();
 
         PostAllowAttributeOverrides allowAttributeOverrides = new PostAllowAttributeOverrides().delinquencyBucketClassification(true)
-                .discountDefault(false).periodPaymentFrequencyType(false).periodPaymentFrequency(true);
+                .breach(true).discountDefault(false).periodPaymentFrequencyType(false).periodPaymentFrequency(true);
 
         return new PutWorkingCapitalLoanProductsProductIdRequest()//
                 .name(name)//
@@ -173,39 +213,40 @@ public class WorkingCapitalRequestFactory {
                 .principal(new BigDecimal(200))//
                 .minPrincipal(new BigDecimal(15))//
                 .maxPrincipal(new BigDecimal(300000))//
-                .discount(new BigDecimal(50)).amortizationType(PutWorkingCapitalLoanProductsProductIdRequest.AmortizationTypeEnum.EIR)//
+                .discount(new BigDecimal(50)) //
+                .amortizationType(PutWorkingCapitalLoanProductsProductIdRequest.AmortizationTypeEnum.EIR)//
                 .npvDayCount(DAYS365.value)//
-                .delinquencyBucketId(null)//
+                .delinquencyBucketId(delinquencyBucketResolver.resolve(DelinquencyBucket.WC_DELINQUENCY_BUCKET))//
                 .dateFormat(DATE_FORMAT)//
                 .locale(LOCALE_EN)//
                 .allowAttributeOverrides(allowAttributeOverrides)//
                 .paymentAllocation(List.of(//
                         createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(), //
-                                List.of(FEE, PRINCIPAL, PENALTY))));//
+                                List.of(DUE_FEE, DUE_PRINCIPAL, DUE_PENALTY, IN_ADVANCE_FEE, IN_ADVANCE_PRINCIPAL, IN_ADVANCE_PENALTY))));//
     }
 
     public List<PostPaymentAllocation> invalidNumberOfPaymentAllocationRulesForWorkingCapitalLoanProductCreateRequest() {
         return List.of(//
                 createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(), //
-                        List.of(FEE, PRINCIPAL, PENALTY, "INTEREST")));//
+                        List.of(DUE_FEE, DUE_PRINCIPAL, DUE_PENALTY, "INTEREST")));//
     }
 
     public List<PostPaymentAllocation> invalidPaymentAllocationRulesForWorkingCapitalLoanProductCreateRequest() {
         return List.of(//
                 createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(), //
-                        List.of(FEE, PRINCIPAL, "INTEREST")));//
+                        List.of(DUE_FEE, DUE_PRINCIPAL, "INTEREST", IN_ADVANCE_FEE, IN_ADVANCE_PRINCIPAL, IN_ADVANCE_PENALTY)));//
     }
 
     public List<PostPaymentAllocation> invalidNumberOfPaymentAllocationRulesForWorkingCapitalLoanProductUpdateRequest() {
         return List.of(//
                 createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(), //
-                        List.of(FEE, PRINCIPAL, PENALTY, "INTEREST")));//
+                        List.of(DUE_FEE, DUE_PRINCIPAL, DUE_PENALTY, "INTEREST")));//
     }
 
     public List<PostPaymentAllocation> invalidPaymentAllocationRulesForWorkingCapitalLoanProductUpdateRequest() {
         return List.of(//
                 createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(), //
-                        List.of(FEE, PRINCIPAL, "INTEREST")));//
+                        List.of(DUE_FEE, DUE_PRINCIPAL, "INTEREST", IN_ADVANCE_FEE, IN_ADVANCE_PRINCIPAL, IN_ADVANCE_PENALTY)));//
     }
 
     public static PostPaymentAllocation createPaymentAllocation(String transactionType, List<String> paymentAllocationRules) {
@@ -246,19 +287,38 @@ public class WorkingCapitalRequestFactory {
                 .breachAmount(DEFAULT_WC_BREACH_AMOUNT);
     }
 
+    public WorkingCapitalNearBreachRequest defaultWorkingCapitalNearBreachRequest() {
+        return new WorkingCapitalNearBreachRequest() //
+                .nearBreachName("NearBreach-WCL-" + Utils.randomStringGenerator(8)) //
+                .nearBreachFrequency(DEFAULT_WC_NEAR_BREACH_FREQUENCY) //
+                .nearBreachFrequencyType(DEFAULT_WC_NEAR_BREACH_FREQUENCY_TYPE) //
+                .nearBreachThreshold(DEFAULT_WC_NEAR_BREACH_THRESHOLD); //
+    }
+
     public PostWorkingCapitalLoanTransactionsRequest defaultWorkingCapitalLoanRepaymentRequest() {
         return new PostWorkingCapitalLoanTransactionsRequest() //
                 .dateFormat(DATE_FORMAT) //
                 .locale(LOCALE_EN);
     }
 
-    private Long getWCDelinquencyBucketIdByName(String bucketName) {
+    private Long getWCBreachIdByName(String breachName) {
         try {
-            List<DelinquencyBucketResponse> buckets = fineractClient.delinquencyRangeAndBucketsManagement().getBuckets(Map.of());
-            return buckets.stream().filter(b -> bucketName.equals(b.getName())).findFirst().map(DelinquencyBucketResponse::getId)
-                    .orElseThrow(() -> new RuntimeException("Working Capital delinquency bucket not found with name: " + bucketName));
+            List<WorkingCapitalBreachData> breaches = fineractClient.workingCapitalBreaches().retrieveAllWorkingCapitalBreaches(Map.of());
+            return breaches.stream().filter(b -> breachName.equals(b.getName())).findFirst().map(WorkingCapitalBreachData::getId)
+                    .orElseThrow(() -> new RuntimeException("Working Capital Breach not found with name: " + breachName));
         } catch (Exception e) {
-            throw new RuntimeException("Failed to fetch Working Capital delinquency bucket by name: " + bucketName, e);
+            throw new RuntimeException("Failed to fetch Working Capital Breacht by name: " + breachName, e);
+        }
+    }
+
+    private Long getWCNearBreachIdByName(String breachName) {
+        try {
+            List<WorkingCapitalNearBreachData> breaches = fineractClient.workingCapitalNearBreaches()
+                    .retrieveAllWorkingCapitalNearBreaches(Map.of());
+            return breaches.stream().filter(b -> breachName.equals(b.getName())).findFirst().map(WorkingCapitalNearBreachData::getId)
+                    .orElseThrow(() -> new RuntimeException("Working Capital Breach not found with name: " + breachName));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch Working Capital Breacht by name: " + breachName, e);
         }
     }
 

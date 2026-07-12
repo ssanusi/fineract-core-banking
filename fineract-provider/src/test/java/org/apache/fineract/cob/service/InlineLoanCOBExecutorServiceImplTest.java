@@ -22,12 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
@@ -53,7 +53,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@SuppressFBWarnings(value = "RV_EXCEPTION_NOT_THROWN", justification = "False positive")
+
 class InlineLoanCOBExecutorServiceImplTest {
 
     @InjectMocks
@@ -89,7 +89,7 @@ class InlineLoanCOBExecutorServiceImplTest {
         businessDates.put(BusinessDateType.COB_DATE, businessDate.minusDays(1));
         ThreadLocalContextUtil.setBusinessDates(businessDates);
 
-        when(transactionTemplate.execute(any())).thenThrow(new AccountLockCannotBeOverruledException(""));
+        doThrow(new AccountLockCannotBeOverruledException("")).when(transactionTemplate).executeWithoutResult(any());
         when(fineractProperties.getQuery()).thenReturn(fineractQueryProperties);
         when(fineractProperties.getApi()).thenReturn(fineractApiProperties);
         when(dataParser.parseExecution(any())).thenReturn(List.of(1L));
@@ -113,7 +113,7 @@ class InlineLoanCOBExecutorServiceImplTest {
         businessDates.put(BusinessDateType.COB_DATE, businessDate.minusDays(1));
         ThreadLocalContextUtil.setBusinessDates(businessDates);
 
-        when(transactionTemplate.execute(any())).thenThrow(new AccountLockCannotBeOverruledException(""));
+        doThrow(new AccountLockCannotBeOverruledException("")).when(transactionTemplate).executeWithoutResult(any());
         when(fineractProperties.getQuery()).thenReturn(fineractQueryProperties);
         when(fineractProperties.getApi()).thenReturn(fineractApiProperties);
         when(dataParser.parseExecution(any())).thenReturn(List.of(1L, 2L, 3L));

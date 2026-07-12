@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.apache.fineract.portfolio.workingcapitalloan.data.WorkingCapitalLoanBreachScheduleData;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoan;
+import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoanBreachAction;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoanBreachSchedule;
 
 public interface WorkingCapitalLoanBreachScheduleService {
@@ -33,11 +34,19 @@ public interface WorkingCapitalLoanBreachScheduleService {
 
     boolean hasSchedule(Long loanId);
 
-    void evaluateExpiredPeriods(WorkingCapitalLoan loan, LocalDate businessDate);
-
     List<WorkingCapitalLoanBreachScheduleData> retrieveBreachSchedule(Long loanId);
 
     boolean evaluateBreachOnDate(WorkingCapitalLoanBreachSchedule period, LocalDate businessDate);
 
     void applyRepayment(Long loanId, LocalDate transactionDate, BigDecimal amount);
+
+    void applyRepaymentUndo(Long loanId, LocalDate transactionDate, BigDecimal amount);
+
+    void evaluateBreach(WorkingCapitalLoan loan, LocalDate businessDate);
+
+    void rescheduleMinimumPayment(WorkingCapitalLoan loan, WorkingCapitalLoanBreachAction rescheduleAction);
+
+    void recalculatePeriodsForPauses(WorkingCapitalLoan loan);
+
+    void reprocessBreachSchedule(WorkingCapitalLoan loan);
 }

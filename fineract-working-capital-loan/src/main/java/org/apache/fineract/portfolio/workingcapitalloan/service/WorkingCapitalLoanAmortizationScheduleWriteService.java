@@ -20,11 +20,15 @@ package org.apache.fineract.portfolio.workingcapitalloan.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import org.apache.fineract.portfolio.workingcapitalloan.data.ProjectedAmortizationScheduleGenerateRequest;
-import org.apache.fineract.portfolio.workingcapitalloan.data.RepaymentAmortizationData;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoan;
 
 public interface WorkingCapitalLoanAmortizationScheduleWriteService {
+
+    /** A principal repayment applied to the amortization schedule on a given date. */
+    record PrincipalPayment(LocalDate date, BigDecimal amount) {
+    }
 
     void generateAndSaveAmortizationSchedule(Long loanId, ProjectedAmortizationScheduleGenerateRequest request);
 
@@ -34,5 +38,24 @@ public interface WorkingCapitalLoanAmortizationScheduleWriteService {
 
     void regenerateAmortizationScheduleOnUndoDisbursal(WorkingCapitalLoan loan);
 
-    RepaymentAmortizationData applyRepayment(WorkingCapitalLoan loan, LocalDate transactionDate, BigDecimal repaymentAmount);
+    void applyRepayment(WorkingCapitalLoan loan, LocalDate transactionDate, BigDecimal repaymentAmount);
+
+    BigDecimal getWorkingCapitalLoanDiscountAmount(WorkingCapitalLoan loan);
+
+    void applyRepaymentUndo(WorkingCapitalLoan loan, LocalDate transactionDate, BigDecimal repaymentAmount);
+
+    void regenerateAmortizationScheduleOnRateChange(WorkingCapitalLoan loan, BigDecimal newRate);
+
+    /**
+     * After a discount fee adjustment: regenerates the projected schedule with the new loan-level discount (as on
+     * disbursement generation) and re-applies recorded actual repayments only.
+     */
+    void applyDiscountFeeAdjustment(WorkingCapitalLoan loan);
+
+    /**
+     * Rebuilds the projected schedule from scratch (as on disbursement) and re-applies the given principal payments in
+     * chronological order. Used by transaction reprocessing, where re-allocation can change the principal portion
+     * recorded on each transaction date.
+     */
+    void rebuildScheduleFromPrincipalPayments(WorkingCapitalLoan loan, List<PrincipalPayment> principalPayments);
 }

@@ -21,12 +21,16 @@ package org.apache.fineract.portfolio.workingcapitalloan.mapper;
 import org.apache.fineract.infrastructure.codes.data.CodeValueData;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
 import org.apache.fineract.infrastructure.core.config.MapstructMapperConfig;
+import org.apache.fineract.organisation.monetary.data.CurrencyData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanTransactionEnumData;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations;
 import org.apache.fineract.portfolio.paymentdetail.data.PaymentDetailData;
 import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail;
+import org.apache.fineract.portfolio.paymenttype.data.PaymentTypeData;
+import org.apache.fineract.portfolio.paymenttype.domain.PaymentType;
 import org.apache.fineract.portfolio.workingcapitalloan.data.WorkingCapitalLoanTransactionData;
+import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoan;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoanTransaction;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -43,6 +47,7 @@ public interface WorkingCapitalLoanTransactionMapper {
     @Mapping(target = "principalPortion", source = "allocation.principalPortion")
     @Mapping(target = "feeChargesPortion", source = "allocation.feeChargesPortion")
     @Mapping(target = "penaltyChargesPortion", source = "allocation.penaltyChargesPortion")
+    @Mapping(target = "currency", source = "wcLoan", qualifiedByName = "currencyData")
     WorkingCapitalLoanTransactionData toData(WorkingCapitalLoanTransaction transaction);
 
     @Named("loanTransactionTypeToEnumData")
@@ -55,13 +60,29 @@ public interface WorkingCapitalLoanTransactionMapper {
         if (paymentDetail == null) {
             return null;
         }
-        return PaymentDetailData.builder().id(paymentDetail.getId()).accountNumber(paymentDetail.getAccountNumber())
-                .checkNumber(paymentDetail.getCheckNumber()).routingCode(paymentDetail.getRoutingCode())
-                .receiptNumber(paymentDetail.getReceiptNumber()).bankNumber(paymentDetail.getBankNumber()).build();
+        return PaymentDetailData.builder().id(paymentDetail.getId()).paymentType(paymentTypeToData(paymentDetail.getPaymentType()))
+                .accountNumber(paymentDetail.getAccountNumber()).checkNumber(paymentDetail.getCheckNumber())
+                .routingCode(paymentDetail.getRoutingCode()).receiptNumber(paymentDetail.getReceiptNumber())
+                .bankNumber(paymentDetail.getBankNumber()).build();
+    }
+
+    @Named("paymentTypeToData")
+    default PaymentTypeData paymentTypeToData(final PaymentType paymentType) {
+        if (paymentType == null) {
+            return null;
+        }
+        return PaymentTypeData.builder().id(paymentType.getId()).name(paymentType.getName()).description(paymentType.getDescription())
+                .isCashPayment(paymentType.getIsCashPayment()).position(paymentType.getPosition()).codeName(paymentType.getCodeName())
+                .isSystemDefined(paymentType.getIsSystemDefined()).build();
     }
 
     @Named("codeValueToData")
     default CodeValueData codeValueToData(final CodeValue codeValue) {
         return codeValue == null ? null : CodeValueData.instance(codeValue.getId(), codeValue.getLabel());
+    }
+
+    @Named("currencyData")
+    default CurrencyData currencyData(final WorkingCapitalLoan wcLoan) {
+        return wcLoan.getLoanProduct().getCurrency().toData();
     }
 }

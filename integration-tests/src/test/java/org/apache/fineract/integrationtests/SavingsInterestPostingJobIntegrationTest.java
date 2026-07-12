@@ -102,7 +102,7 @@ public class SavingsInterestPostingJobIntegrationTest {
         ArrayList<HashMap<String, Object>> transactions = (ArrayList<HashMap<String, Object>>) transactionObj;
         HashMap<String, Object> interestPostingTransaction = transactions.get(transactions.size() - 48);
         for (Map.Entry<String, Object> entry : interestPostingTransaction.entrySet()) {
-            LOG.info("{} - {}", entry.getKey(), entry.getValue().toString());
+            LOG.info("{} - {}", entry.getKey(), String.valueOf(entry.getValue()));
         }
         assertEquals("10129.582", interestPostingTransaction.get("runningBalance").toString(), "Equality check for Balance");
     }
@@ -152,7 +152,7 @@ public class SavingsInterestPostingJobIntegrationTest {
         try {
             globalConfigurationHelper.updateGlobalConfiguration(GlobalConfigurationConstants.ENABLE_BUSINESS_DATE,
                     new PutGlobalConfigurationsRequest().enabled(true));
-            BusinessDateHelper.updateBusinessDate(requestSpec, responseSpec, BusinessDateType.BUSINESS_DATE, today);
+            BusinessDateHelper.updateBusinessDate(BusinessDateType.BUSINESS_DATE, today);
             final String startDate = "10 April 2022";
             final Integer clientID = ClientHelper.createClient(this.requestSpec, this.responseSpec, startDate);
             Assertions.assertNotNull(clientID);
@@ -166,7 +166,7 @@ public class SavingsInterestPostingJobIntegrationTest {
             ArrayList<HashMap<String, Object>> transactions = (ArrayList<HashMap<String, Object>>) transactionObj;
             HashMap<String, Object> interestPostingTransaction = transactions.get(transactions.size() - 3);
             for (Map.Entry<String, Object> entry : interestPostingTransaction.entrySet()) {
-                LOG.info("{} - {}", entry.getKey(), entry.getValue().toString());
+                LOG.info("{} - {}", entry.getKey(), String.valueOf(entry.getValue()));
             }
             assertEquals("2.7405", interestPostingTransaction.get("amount").toString(), "Equality check for interest posted amount");
             assertEquals("[2022, 4, 12]", interestPostingTransaction.get("date").toString(), "Date check for Interest Posting transaction");
@@ -195,7 +195,7 @@ public class SavingsInterestPostingJobIntegrationTest {
         ArrayList<HashMap<String, Object>> transactions = (ArrayList<HashMap<String, Object>>) transactionObj;
         HashMap<String, Object> interestPostingTransaction = transactions.get(transactions.size() - 2);
         for (Map.Entry<String, Object> entry : interestPostingTransaction.entrySet()) {
-            LOG.info("{} - {}", entry.getKey(), entry.getValue().toString());
+            LOG.info("{} - {}", entry.getKey(), String.valueOf(entry.getValue()));
         }
         assertEquals("2.7397", interestPostingTransaction.get("amount").toString(), "Equality check for overdatft interest posted amount");
         assertEquals("[2022, 4, 11]", interestPostingTransaction.get("date").toString(),
@@ -221,7 +221,7 @@ public class SavingsInterestPostingJobIntegrationTest {
         ArrayList<HashMap<String, Object>> transactions = (ArrayList<HashMap<String, Object>>) transactionObj;
         HashMap<String, Object> interestPostingTransaction = transactions.get(transactions.size() - 5);
         for (Map.Entry<String, Object> entry : interestPostingTransaction.entrySet()) {
-            LOG.info("{} - {}", entry.getKey(), entry.getValue().toString());
+            LOG.info("{} - {}", entry.getKey(), String.valueOf(entry.getValue()));
         }
         assertEquals("800.4384", interestPostingTransaction.get("runningBalance").toString(), "Equality check for Balance");
     }
@@ -232,7 +232,7 @@ public class SavingsInterestPostingJobIntegrationTest {
         try {
             globalConfigurationHelper.updateGlobalConfiguration(GlobalConfigurationConstants.ENABLE_BUSINESS_DATE,
                     new PutGlobalConfigurationsRequest().enabled(true));
-            BusinessDateHelper.updateBusinessDate(requestSpec, responseSpec, BusinessDateType.BUSINESS_DATE, businessDate);
+            BusinessDateHelper.updateBusinessDate(BusinessDateType.BUSINESS_DATE, businessDate);
 
             final String startDate = "10 April 2022";
             final Integer clientID = ClientHelper.createClient(this.requestSpec, this.responseSpec, startDate);
@@ -263,7 +263,7 @@ public class SavingsInterestPostingJobIntegrationTest {
         try {
             globalConfigurationHelper.updateGlobalConfiguration(GlobalConfigurationConstants.ENABLE_BUSINESS_DATE,
                     new PutGlobalConfigurationsRequest().enabled(true));
-            BusinessDateHelper.updateBusinessDate(requestSpec, responseSpec, BusinessDateType.BUSINESS_DATE, businessDate);
+            BusinessDateHelper.updateBusinessDate(BusinessDateType.BUSINESS_DATE, businessDate);
 
             final String startDate = "10 April 2022";
             final Integer clientID = ClientHelper.createClient(this.requestSpec, this.responseSpec, startDate);

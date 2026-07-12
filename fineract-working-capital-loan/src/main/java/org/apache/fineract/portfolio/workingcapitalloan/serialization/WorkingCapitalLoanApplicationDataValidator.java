@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -58,6 +59,9 @@ import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoa
 import org.apache.fineract.portfolio.workingcapitalloan.exception.WorkingCapitalLoanApplicationDateException;
 import org.apache.fineract.portfolio.workingcapitalloan.exception.WorkingCapitalLoanApplicationNotInSubmittedStateCannotBeModifiedException;
 import org.apache.fineract.portfolio.workingcapitalloan.repository.WorkingCapitalLoanRepository;
+import org.apache.fineract.portfolio.workingcapitalloanbreach.domain.WorkingCapitalBreach;
+import org.apache.fineract.portfolio.workingcapitalloannearbreach.domain.WorkingCapitalNearBreach;
+import org.apache.fineract.portfolio.workingcapitalloannearbreach.validator.WorkingCapitalNearBreachParseAndValidator;
 import org.apache.fineract.portfolio.workingcapitalloanproduct.WorkingCapitalLoanProductConstants;
 import org.apache.fineract.portfolio.workingcapitalloanproduct.domain.WorkingCapitalLoanDelinquencyStartType;
 import org.apache.fineract.portfolio.workingcapitalloanproduct.domain.WorkingCapitalLoanProduct;
@@ -82,14 +86,15 @@ public class WorkingCapitalLoanApplicationDataValidator {
             WorkingCapitalLoanConstants.clientIdParameterName, WorkingCapitalLoanConstants.productIdParameterName,
             WorkingCapitalLoanConstants.fundIdParameterName, WorkingCapitalLoanConstants.accountNoParameterName,
             WorkingCapitalLoanConstants.externalIdParameterName, WorkingCapitalLoanConstants.principalAmountParamName,
-            WorkingCapitalLoanProductConstants.periodPaymentRateParamName, WorkingCapitalLoanConstants.totalPaymentParamName,
-            WorkingCapitalLoanProductConstants.discountParamName, WorkingCapitalLoanConstants.submittedOnDateParameterName,
-            WorkingCapitalLoanConstants.expectedDisbursementDateParameterName,
+            WorkingCapitalLoanConstants.originatorsParameterName, WorkingCapitalLoanProductConstants.periodPaymentRateParamName,
+            WorkingCapitalLoanConstants.totalPaymentVolumeParamName, WorkingCapitalLoanProductConstants.discountParamName,
+            WorkingCapitalLoanConstants.submittedOnDateParameterName, WorkingCapitalLoanConstants.expectedDisbursementDateParameterName,
             WorkingCapitalLoanProductConstants.delinquencyBucketIdParamName, WorkingCapitalLoanProductConstants.repaymentEveryParamName,
             WorkingCapitalLoanProductConstants.repaymentFrequencyTypeParamName, WorkingCapitalLoanConstants.submittedOnNoteParameterName,
             WorkingCapitalLoanProductConstants.breachIdParamName, WorkingCapitalLoanProductConstants.allowAttributeOverridesParamName,
             WorkingCapitalLoanProductConstants.paymentAllocationParamName, WorkingCapitalLoanProductConstants.delinquencyGraceDaysParamName,
-            WorkingCapitalLoanProductConstants.delinquencyStartTypeParamName));
+            WorkingCapitalLoanProductConstants.delinquencyStartTypeParamName, WorkingCapitalLoanProductConstants.nearBreachIdParamName,
+            WorkingCapitalLoanProductConstants.breachGraceDaysParamName));
 
     private final FromJsonHelper fromApiJsonHelper;
     private final WorkingCapitalPaymentAllocationDataValidator paymentAllocationDataValidator;
@@ -97,11 +102,12 @@ public class WorkingCapitalLoanApplicationDataValidator {
     private final ClientRepository clientRepository;
     private final WorkingCapitalLoanRepository workingCapitalLoanRepository;
     private final ExpectedDisbursementDateValidator expectedDisbursementDateValidator;
+    private final WorkingCapitalNearBreachParseAndValidator workingCapitalNearBreachValidator;
 
     /**
      * Validates the create loan application request. Mandatory: clientId, productId, principal (disbursement amount),
-     * periodPaymentRate, totalPayment, expectedDisbursementDate. Optional: discount, submittedOnDate. Principal and
-     * periodPaymentRate must be within product min/max when defined. LP overrides validated when product allows.
+     * periodPaymentRate, totalPaymentVolume, expectedDisbursementDate. Optional: discount, submittedOnDate. Principal
+     * and periodPaymentRate must be within product min/max when defined. LP overrides validated when product allows.
      */
     public void validateForCreate(final JsonCommand command) {
         final String json = command.json();
@@ -160,11 +166,13 @@ public class WorkingCapitalLoanApplicationDataValidator {
         baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.periodPaymentRateParamName).value(periodPaymentRate)
                 .notNull().zeroOrPositiveAmount();
 
-        // Mandatory: totalPayment
-        final BigDecimal totalPayment = this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanConstants.totalPaymentParamName, element)
-                ? this.fromApiJsonHelper.extractBigDecimalNamed(WorkingCapitalLoanConstants.totalPaymentParamName, element, new HashSet<>())
-                : null;
-        baseDataValidator.reset().parameter(WorkingCapitalLoanConstants.totalPaymentParamName).value(totalPayment).notNull()
+        // Mandatory: totalPaymentVolume
+        final BigDecimal totalPaymentVolume = this.fromApiJsonHelper
+                .parameterExists(WorkingCapitalLoanConstants.totalPaymentVolumeParamName, element)
+                        ? this.fromApiJsonHelper.extractBigDecimalNamed(WorkingCapitalLoanConstants.totalPaymentVolumeParamName, element,
+                                new HashSet<>())
+                        : null;
+        baseDataValidator.reset().parameter(WorkingCapitalLoanConstants.totalPaymentVolumeParamName).value(totalPaymentVolume).notNull()
                 .zeroOrPositiveAmount();
 
         // Optional: discount
@@ -208,6 +216,13 @@ public class WorkingCapitalLoanApplicationDataValidator {
                     .extractIntegerWithLocaleNamed(WorkingCapitalLoanProductConstants.delinquencyGraceDaysParamName, element);
             baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.delinquencyGraceDaysParamName)
                     .value(delinquencyGraceDays).ignoreIfNull().integerZeroOrGreater();
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.breachGraceDaysParamName, element)) {
+            final Integer breachGraceDays = this.fromApiJsonHelper
+                    .extractIntegerWithLocaleNamed(WorkingCapitalLoanProductConstants.breachGraceDaysParamName, element);
+            baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.breachGraceDaysParamName).value(breachGraceDays)
+                    .ignoreIfNull().integerZeroOrGreater();
         }
 
         if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.delinquencyStartTypeParamName, element)) {
@@ -260,7 +275,7 @@ public class WorkingCapitalLoanApplicationDataValidator {
 
         // LP overridables (if product allows and user sent them)
         if (product != null && product.getConfigurableAttributes() != null) {
-            validateOverridables(element, baseDataValidator, product.getConfigurableAttributes());
+            validateOverridables(element, baseDataValidator, product.getConfigurableAttributes(), null, null);
         }
 
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
@@ -372,11 +387,11 @@ public class WorkingCapitalLoanApplicationDataValidator {
             validatePeriodPaymentRateMinMax(periodPaymentRate, product, baseDataValidator);
         }
 
-        if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanConstants.totalPaymentParamName, element)) {
+        if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanConstants.totalPaymentVolumeParamName, element)) {
             atLeastOneParameterPassedForUpdate = true;
-            final BigDecimal totalPayment = this.fromApiJsonHelper.extractBigDecimalNamed(WorkingCapitalLoanConstants.totalPaymentParamName,
-                    element, new HashSet<>());
-            baseDataValidator.reset().parameter(WorkingCapitalLoanConstants.totalPaymentParamName).value(totalPayment).notNull()
+            final BigDecimal totalPaymentVolume = this.fromApiJsonHelper
+                    .extractBigDecimalNamed(WorkingCapitalLoanConstants.totalPaymentVolumeParamName, element, new HashSet<>());
+            baseDataValidator.reset().parameter(WorkingCapitalLoanConstants.totalPaymentVolumeParamName).value(totalPaymentVolume).notNull()
                     .zeroOrPositiveAmount();
         }
 
@@ -443,10 +458,10 @@ public class WorkingCapitalLoanApplicationDataValidator {
             this.paymentAllocationDataValidator.validate(element, baseDataValidator);
         }
 
-        if (product != null && product.getConfigurableAttributes() != null
-                && this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.allowAttributeOverridesParamName, element)) {
+        if (product != null && product.getConfigurableAttributes() != null && existsAnyOverridableParameter(element)) {
             atLeastOneParameterPassedForUpdate = true;
-            validateOverridables(element, baseDataValidator, product.getConfigurableAttributes());
+            validateOverridables(element, baseDataValidator, product.getConfigurableAttributes(), product.getBreach(),
+                    product.getNearBreach());
         }
 
         if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.delinquencyGraceDaysParamName, element)) {
@@ -455,6 +470,14 @@ public class WorkingCapitalLoanApplicationDataValidator {
                     .extractIntegerWithLocaleNamed(WorkingCapitalLoanProductConstants.delinquencyGraceDaysParamName, element);
             baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.delinquencyGraceDaysParamName)
                     .value(delinquencyGraceDays).ignoreIfNull().integerZeroOrGreater();
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.breachGraceDaysParamName, element)) {
+            atLeastOneParameterPassedForUpdate = true;
+            final Integer breachGraceDays = this.fromApiJsonHelper
+                    .extractIntegerWithLocaleNamed(WorkingCapitalLoanProductConstants.breachGraceDaysParamName, element);
+            baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.breachGraceDaysParamName).value(breachGraceDays)
+                    .ignoreIfNull().integerZeroOrGreater();
         }
 
         if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.delinquencyStartTypeParamName, element)) {
@@ -538,8 +561,17 @@ public class WorkingCapitalLoanApplicationDataValidator {
         }
     }
 
+    private boolean existsAnyOverridableParameter(final JsonElement element) {
+        return Stream.of(WorkingCapitalLoanProductConstants.delinquencyBucketIdParamName,
+                WorkingCapitalLoanProductConstants.repaymentEveryParamName,
+                WorkingCapitalLoanProductConstants.repaymentFrequencyTypeParamName, WorkingCapitalLoanProductConstants.discountParamName,
+                WorkingCapitalLoanProductConstants.breachIdParamName, WorkingCapitalLoanProductConstants.nearBreachIdParamName)
+                .anyMatch(param -> this.fromApiJsonHelper.parameterExists(param, element));
+    }
+
     private void validateOverridables(final JsonElement element, final DataValidatorBuilder baseDataValidator,
-            final WorkingCapitalLoanProductConfigurableAttributes config) {
+            final WorkingCapitalLoanProductConfigurableAttributes config, final WorkingCapitalBreach currentBreach,
+            final WorkingCapitalNearBreach currentNearBreach) {
         if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.delinquencyBucketIdParamName, element)) {
             if (config.isDelinquencyBucketClassification()) {
                 final Long bucketId = this.fromApiJsonHelper
@@ -582,7 +614,7 @@ public class WorkingCapitalLoanApplicationDataValidator {
             }
         }
         if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.discountParamName, element)) {
-            if (config.isDiscountDefault()) {
+            if (config.isDiscountDefaultOverridable()) {
                 final BigDecimal discount = this.fromApiJsonHelper
                         .extractBigDecimalNamed(WorkingCapitalLoanProductConstants.discountParamName, element, new java.util.HashSet<>());
                 baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.discountParamName).value(discount).ignoreIfNull()
@@ -592,16 +624,34 @@ public class WorkingCapitalLoanApplicationDataValidator {
                         .failWithCode("override.not.allowed.by.product");
             }
         }
+        Long breachId = (currentBreach == null) ? null : currentBreach.getId();
         if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.breachIdParamName, element)) {
             if (config.isBreach()) {
-                final Long breachId = this.fromApiJsonHelper.extractLongNamed(WorkingCapitalLoanProductConstants.breachIdParamName,
-                        element);
+                breachId = this.fromApiJsonHelper.extractLongNamed(WorkingCapitalLoanProductConstants.breachIdParamName, element);
                 baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.breachIdParamName).value(breachId).ignoreIfNull()
                         .longGreaterThanZero();
             } else {
                 baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.breachIdParamName)
                         .failWithCode("override.not.allowed.by.product");
             }
+        }
+        Long nearBreachId = (currentNearBreach == null) ? null : currentNearBreach.getId();
+        if (this.fromApiJsonHelper.parameterExists(WorkingCapitalLoanProductConstants.nearBreachIdParamName, element)) {
+            if (config.isBreach()) {
+                nearBreachId = this.fromApiJsonHelper.extractLongNamed(WorkingCapitalLoanProductConstants.nearBreachIdParamName, element);
+                baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.nearBreachIdParamName).value(nearBreachId)
+                        .ignoreIfNull().longGreaterThanZero();
+            } else {
+                baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.nearBreachIdParamName)
+                        .failWithCode("override.not.allowed.by.product");
+            }
+        }
+        if (breachId == null && nearBreachId != null) {
+            baseDataValidator.reset().parameter(WorkingCapitalLoanProductConstants.nearBreachIdParamName)
+                    .failWithCode("cannot.enable.near.breach.without.breach");
+        }
+        if (breachId != null && nearBreachId != null) {
+            workingCapitalNearBreachValidator.validateNearBreachAgainstBreach(baseDataValidator, breachId, nearBreachId);
         }
     }
 

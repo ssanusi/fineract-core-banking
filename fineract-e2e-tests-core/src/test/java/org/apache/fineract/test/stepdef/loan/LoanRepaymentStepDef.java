@@ -33,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.avro.loan.v1.LoanTransactionAdjustmentDataV1;
 import org.apache.fineract.avro.loan.v1.LoanTransactionDataV1;
@@ -49,6 +50,7 @@ import org.apache.fineract.client.models.PostLoansLoanIdTransactionsResponse;
 import org.apache.fineract.client.models.PostLoansLoanIdTransactionsTransactionIdRequest;
 import org.apache.fineract.client.models.PostLoansResponse;
 import org.apache.fineract.client.models.PostUsersResponse;
+import org.apache.fineract.test.api.FineractClientConfiguration;
 import org.apache.fineract.test.data.TransactionType;
 import org.apache.fineract.test.data.paymenttype.DefaultPaymentType;
 import org.apache.fineract.test.data.paymenttype.PaymentTypeResolver;
@@ -61,9 +63,9 @@ import org.apache.fineract.test.messaging.event.loan.transaction.LoanAdjustTrans
 import org.apache.fineract.test.messaging.store.EventStore;
 import org.apache.fineract.test.stepdef.AbstractStepDef;
 import org.apache.fineract.test.support.TestContextKey;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
+@RequiredArgsConstructor
 public class LoanRepaymentStepDef extends AbstractStepDef {
 
     public static final String DATE_FORMAT = "dd MMMM yyyy";
@@ -75,23 +77,13 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
     public static final String DEFAULT_REPAYMENT_TYPE = "AUTOPAY";
     private static final String PWD_USER_WITH_ROLE = "1234567890Aa!";
 
-    @Autowired
-    private FineractFeignClient fineractClient;
-
-    @Autowired
-    private EventAssertion eventAssertion;
-
-    @Autowired
-    private PaymentTypeResolver paymentTypeResolver;
-
-    @Autowired
-    private EventCheckHelper eventCheckHelper;
-
-    @Autowired
-    private EventStore eventStore;
-
-    @Autowired
-    private org.apache.fineract.test.api.ApiProperties apiProperties;
+    private final FineractFeignClient fineractClient;
+    private final EventAssertion eventAssertion;
+    private final PaymentTypeResolver paymentTypeResolver;
+    private final EventCheckHelper eventCheckHelper;
+    private final EventStore eventStore;
+    private final FineractClientConfiguration fineractClientConfiguration;
+    private final LoanRequestFactory loanRequestFactory;
 
     @And("Customer makes {string} repayment on {string} with {double} EUR transaction amount")
     public void makeLoanRepayment(String repaymentType, String transactionDate, double transactionAmount) throws IOException {
@@ -111,8 +103,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         makeRepayment(repaymentType, transactionDate, transactionAmount, previousOwnerId);
     }
 
-    private void makeRepayment(String repaymentType, String transactionDate, double transactionAmount, String transferExternalOwnerId)
-            throws IOException {
+    private void makeRepayment(String repaymentType, String transactionDate, double transactionAmount, String transferExternalOwnerId) {
         eventStore.reset();
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
@@ -120,14 +111,14 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         DefaultPaymentType paymentType = DefaultPaymentType.valueOf(repaymentType);
         long paymentTypeValue = paymentTypeResolver.resolve(paymentType);
 
-        PostLoansLoanIdTransactionsRequest repaymentRequest = LoanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
+        PostLoansLoanIdTransactionsRequest repaymentRequest = loanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
                 .transactionAmount(transactionAmount).paymentTypeId(paymentTypeValue).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         String idempotencyKey = UUID.randomUUID().toString();
         testContext().set(TestContextKey.TRANSACTION_IDEMPOTENCY_KEY, idempotencyKey);
 
-        PostLoansLoanIdTransactionsResponse repaymentResponse = ok(() -> fineractClient.loanTransactions().executeLoanTransaction(loanId,
-                repaymentRequest, Map.<String, Object>of("command", "repayment")));
+        PostLoansLoanIdTransactionsResponse repaymentResponse = ok(() -> fineractClient.loanTransactions()
+                .handleCommandsLoanTransaction(loanId, repaymentRequest, Map.<String, Object>of("command", "repayment")));
         testContext().set(TestContextKey.LOAN_REPAYMENT_RESPONSE, repaymentResponse);
         EventAssertion.EventAssertionBuilder<LoanTransactionDataV1> transactionEvent = eventCheckHelper
                 .transactionEventCheck(repaymentResponse, TransactionType.REPAYMENT, transferExternalOwnerId);
@@ -144,7 +135,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         DefaultPaymentType paymentType = DefaultPaymentType.valueOf(repaymentType);
         Long paymentTypeValue = paymentTypeResolver.resolve(paymentType);
 
-        PostLoansLoanIdTransactionsRequest repaymentRequest = LoanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
+        PostLoansLoanIdTransactionsRequest repaymentRequest = loanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
                 .transactionAmount(transactionAmount).paymentTypeId(paymentTypeValue).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         String idempotencyKey = UUID.randomUUID().toString();
@@ -154,12 +145,9 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         Long createdUserId = createUserResponse.getResourceId();
         GetUsersUserIdResponse user = ok(() -> fineractClient.users().retrieveOneUser(createdUserId));
 
-        String apiBaseUrl = apiProperties.getBaseUrl() + "/fineract-provider/api/";
-        FineractFeignClient userClient = FineractFeignClient.builder().baseUrl(apiBaseUrl)
-                .credentials(user.getUsername(), PWD_USER_WITH_ROLE).tenantId(apiProperties.getTenantId()).disableSslVerification(true)
-                .readTimeout((int) apiProperties.getReadTimeout(), java.util.concurrent.TimeUnit.SECONDS).build();
+        FineractFeignClient userClient = fineractClientConfiguration.fineractFeignClientForUser(user.getUsername(), PWD_USER_WITH_ROLE);
 
-        PostLoansLoanIdTransactionsResponse repaymentResponse = ok(() -> userClient.loanTransactions().executeLoanTransaction(loanId,
+        PostLoansLoanIdTransactionsResponse repaymentResponse = ok(() -> userClient.loanTransactions().handleCommandsLoanTransaction(loanId,
                 repaymentRequest, Map.<String, Object>of("command", "repayment")));
         testContext().set(TestContextKey.LOAN_REPAYMENT_RESPONSE, repaymentResponse);
         eventCheckHelper.loanBalanceChangedEventCheck(loanId);
@@ -175,14 +163,14 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         DefaultPaymentType paymentType = DefaultPaymentType.valueOf(repaymentType);
         Long paymentTypeValue = paymentTypeResolver.resolve(paymentType);
 
-        PostLoansLoanIdTransactionsRequest repaymentRequest = LoanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
+        PostLoansLoanIdTransactionsRequest repaymentRequest = loanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
                 .transactionAmount(transactionAmount).paymentTypeId(paymentTypeValue).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         String idempotencyKey = UUID.randomUUID().toString();
         testContext().set(TestContextKey.TRANSACTION_IDEMPOTENCY_KEY, idempotencyKey);
 
         PostLoansLoanIdTransactionsResponse repaymentResponse = ok(
-                () -> fineractClient.loanTransactions().executeLoanTransactionByLoanExternalId(resourceExternalId, repaymentRequest,
+                () -> fineractClient.loanTransactions().handleCommandsLoanTransactionByLoanExternalId(resourceExternalId, repaymentRequest,
                         Map.<String, Object>of("command", "repayment")));
 
         testContext().set(TestContextKey.LOAN_REPAYMENT_RESPONSE, repaymentResponse);
@@ -200,7 +188,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         DefaultPaymentType paymentType = DefaultPaymentType.valueOf(repaymentType);
         Long paymentTypeValue = paymentTypeResolver.resolve(paymentType);
 
-        PostLoansLoanIdTransactionsRequest repaymentRequest = LoanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
+        PostLoansLoanIdTransactionsRequest repaymentRequest = loanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
                 .transactionAmount(transactionAmount).paymentTypeId(paymentTypeValue).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         String idempotencyKey = UUID.randomUUID().toString();
@@ -210,13 +198,10 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         Long createdUserId = createUserResponse.getResourceId();
         GetUsersUserIdResponse user = ok(() -> fineractClient.users().retrieveOneUser(createdUserId));
 
-        String apiBaseUrl = apiProperties.getBaseUrl() + "/fineract-provider/api/";
-        FineractFeignClient userClient = FineractFeignClient.builder().baseUrl(apiBaseUrl)
-                .credentials(user.getUsername(), PWD_USER_WITH_ROLE).tenantId(apiProperties.getTenantId()).disableSslVerification(true)
-                .readTimeout((int) apiProperties.getReadTimeout(), java.util.concurrent.TimeUnit.SECONDS).build();
+        FineractFeignClient userClient = fineractClientConfiguration.fineractFeignClientForUser(user.getUsername(), PWD_USER_WITH_ROLE);
 
         PostLoansLoanIdTransactionsResponse repaymentResponse = ok(
-                () -> userClient.loanTransactions().executeLoanTransactionByLoanExternalId(resourceExternalId, repaymentRequest,
+                () -> userClient.loanTransactions().handleCommandsLoanTransactionByLoanExternalId(resourceExternalId, repaymentRequest,
                         Map.<String, Object>of("command", "repayment")));
         testContext().set(TestContextKey.LOAN_REPAYMENT_RESPONSE, repaymentResponse);
         eventCheckHelper.loanBalanceChangedEventCheck(loanId);
@@ -230,11 +215,11 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         DefaultPaymentType paymentType = DefaultPaymentType.valueOf(repaymentType);
         Long paymentTypeValue = paymentTypeResolver.resolve(paymentType);
 
-        PostLoansLoanIdTransactionsRequest repaymentRequest = LoanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
+        PostLoansLoanIdTransactionsRequest repaymentRequest = loanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
                 .transactionAmount(transactionAmount).paymentTypeId(paymentTypeValue).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         try {
-            ok(() -> fineractClient.loanTransactions().executeLoanTransaction(loanId, repaymentRequest,
+            ok(() -> fineractClient.loanTransactions().handleCommandsLoanTransaction(loanId, repaymentRequest,
                     Map.<String, Object>of("command", "repayment")));
             throw new IllegalStateException("Expected FeignException but call succeeded");
         } catch (feign.FeignException e) {
@@ -254,7 +239,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
 
         PostLoansLoanIdTransactionsResponse repaymentResponse = testContext().get(TestContextKey.LOAN_REPAYMENT_RESPONSE);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = LoanRequestFactory.defaultRepaymentUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = loanRequestFactory.defaultRepaymentUndoRequest()
                 .transactionDate(transactionDate).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         try {
@@ -277,11 +262,11 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         DefaultPaymentType paymentType = DefaultPaymentType.valueOf(repaymentType);
         Long paymentTypeValue = paymentTypeResolver.resolve(paymentType);
 
-        PostLoansLoanIdTransactionsRequest repaymentRequest = LoanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
+        PostLoansLoanIdTransactionsRequest repaymentRequest = loanRequestFactory.defaultRepaymentRequest().transactionDate(transactionDate)
                 .transactionAmount(transactionAmount).paymentTypeId(paymentTypeValue).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
-        CallFailedRuntimeException exception = fail(() -> fineractClient.loanTransactions().executeLoanTransaction(loanId, repaymentRequest,
-                Map.<String, Object>of("command", "repayment")));
+        CallFailedRuntimeException exception = fail(() -> fineractClient.loanTransactions().handleCommandsLoanTransaction(loanId,
+                repaymentRequest, Map.<String, Object>of("command", "repayment")));
         testContext().set(TestContextKey.LOAN_REPAYMENT_RESPONSE, null);
         testContext().set(TestContextKey.ERROR_RESPONSE, exception);
     }
@@ -291,13 +276,13 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         eventStore.reset();
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
-        PostLoansLoanIdTransactionsRequest refundRequest = LoanRequestFactory.defaultRefundRequest().transactionDate(transactionDate)
+        PostLoansLoanIdTransactionsRequest refundRequest = loanRequestFactory.defaultRefundRequest().transactionDate(transactionDate)
                 .transactionAmount(transactionAmount).paymentTypeId(paymentTypeResolver.resolve(AUTOPAY)).dateFormat(DATE_FORMAT)
                 .locale(DEFAULT_LOCALE).accountNumber(DEFAULT_ACCOUNT_NB).checkNumber(DEFAULT_CHECK_NB).receiptNumber(DEFAULT_RECEIPT_NB)
                 .bankNumber(DEFAULT_BANK_NB);
 
-        PostLoansLoanIdTransactionsResponse refundResponse = ok(() -> fineractClient.loanTransactions().executeLoanTransaction(loanId,
-                refundRequest, Map.<String, Object>of("command", "payoutRefund")));
+        PostLoansLoanIdTransactionsResponse refundResponse = ok(() -> fineractClient.loanTransactions()
+                .handleCommandsLoanTransaction(loanId, refundRequest, Map.<String, Object>of("command", "payoutRefund")));
         testContext().set(TestContextKey.LOAN_REFUND_RESPONSE, refundResponse);
         eventCheckHelper.loanBalanceChangedEventCheck(loanId);
     }
@@ -309,7 +294,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         long loanId = loanResponse.getLoanId();
         PostLoansLoanIdTransactionsResponse refundResponse = testContext().get(TestContextKey.LOAN_REFUND_RESPONSE);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest refundUndoRequest = LoanRequestFactory.defaultRefundUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest refundUndoRequest = loanRequestFactory.defaultRefundUndoRequest()
                 .transactionDate(transactionDate).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         PostLoansLoanIdTransactionsResponse refundUndoResponse = ok(() -> fineractClient.loanTransactions().adjustLoanTransaction(loanId,
@@ -335,7 +320,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         long loanId = loanResponse.getLoanId();
         PostLoansLoanIdTransactionsResponse repaymentResponse = testContext().get(TestContextKey.LOAN_REPAYMENT_RESPONSE);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = LoanRequestFactory.defaultRepaymentUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = loanRequestFactory.defaultRepaymentUndoRequest()
                 .transactionDate(transactionDate).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         PostLoansLoanIdTransactionsResponse repaymentUndoResponse = ok(() -> fineractClient.loanTransactions().adjustLoanTransaction(loanId,
@@ -360,7 +345,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         long loanId = loanResponse.getLoanId();
         PostLoansLoanIdTransactionsResponse repaymentResponse = testContext().get(transactionType);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = LoanRequestFactory.defaultRepaymentUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = loanRequestFactory.defaultRepaymentUndoRequest()
                 .transactionAmount(transactionAmount);
 
         CallFailedRuntimeException exception = fail(() -> fineractClient.loanTransactions().adjustLoanTransaction(loanId,
@@ -375,14 +360,14 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
         List<GetLoansLoanIdTransactions> transactions = ok(
-                () -> fineractClient.loans().retrieveLoan(loanId, Map.<String, Object>of("associations", "transactions")))
+                () -> fineractClient.loans().retrieveOneLoan(loanId, Map.<String, Object>of("associations", "transactions")))
                 .getTransactions();
 
         int nthItem = Integer.parseInt(nthItemStr) - 1;
         GetLoansLoanIdTransactions targetTransaction = transactions.stream().filter(t -> Boolean.TRUE.equals(t.getType().getRepayment()))
                 .toList().get(nthItem);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = LoanRequestFactory.defaultRepaymentUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = loanRequestFactory.defaultRepaymentUndoRequest()
                 .transactionDate(transactionDate).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         PostLoansLoanIdTransactionsResponse repaymentUndoResponse = ok(() -> fineractClient.loanTransactions().adjustLoanTransaction(loanId,
@@ -398,14 +383,14 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
         List<GetLoansLoanIdTransactions> transactions = ok(
-                () -> fineractClient.loans().retrieveLoan(loanId, Map.<String, Object>of("associations", "transactions")))
+                () -> fineractClient.loans().retrieveOneLoan(loanId, Map.<String, Object>of("associations", "transactions")))
                 .getTransactions();
 
         int nthItem = Integer.parseInt(nthItemStr) - 1;
         GetLoansLoanIdTransactions targetTransaction = transactions.stream()
                 .filter(t -> Boolean.TRUE.equals(t.getType().getCapitalizedIncomeAdjustment())).toList().get(nthItem);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest capitalizedIncomeUndoRequest = LoanRequestFactory
+        PostLoansLoanIdTransactionsTransactionIdRequest capitalizedIncomeUndoRequest = loanRequestFactory
                 .defaultCapitalizedIncomeAdjustmentUndoRequest().transactionDate(transactionDate);
 
         PostLoansLoanIdTransactionsResponse capitalizedIncomeUndoResponse = ok(() -> fineractClient.loanTransactions()
@@ -422,14 +407,14 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
         List<GetLoansLoanIdTransactions> transactions = ok(
-                () -> fineractClient.loans().retrieveLoan(loanId, Map.<String, Object>of("associations", "transactions")))
+                () -> fineractClient.loans().retrieveOneLoan(loanId, Map.<String, Object>of("associations", "transactions")))
                 .getTransactions();
 
         int nthItem = Integer.parseInt(nthItemStr) - 1;
         GetLoansLoanIdTransactions targetTransaction = transactions.stream()
                 .filter(t -> transactionDate.equals(formatter.format(t.getDate()))).toList().get(nthItem);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = LoanRequestFactory.defaultTransactionUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = loanRequestFactory.defaultTransactionUndoRequest()
                 .transactionDate(transactionDate);
 
         PostLoansLoanIdTransactionsResponse transactionUndoResponse = ok(() -> fineractClient.loanTransactions()
@@ -446,13 +431,13 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
         List<GetLoansLoanIdTransactions> transactions = ok(
-                () -> fineractClient.loans().retrieveLoan(loanId, Map.<String, Object>of("associations", "transactions")))
+                () -> fineractClient.loans().retrieveOneLoan(loanId, Map.<String, Object>of("associations", "transactions")))
                 .getTransactions();
 
         GetLoansLoanIdTransactions targetTransaction = eventCheckHelper.getNthTransactionType(nthItemStr, transactionType, transactionDate,
                 transactions);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = LoanRequestFactory.defaultTransactionUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = loanRequestFactory.defaultTransactionUndoRequest()
                 .transactionDate(transactionDate);
 
         PostLoansLoanIdTransactionsResponse transactionUndoResponse = ok(() -> fineractClient.loanTransactions()
@@ -470,7 +455,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         GetLoansLoanIdTransactions targetTransaction = eventCheckHelper.findNthTransaction(nthItemStr, transactionType, transactionDate,
                 loanId);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = LoanRequestFactory.defaultTransactionUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = loanRequestFactory.defaultTransactionUndoRequest()
                 .transactionDate(transactionDate);
 
         CallFailedRuntimeException exception = fail(() -> fineractClient.loanTransactions().adjustLoanTransaction(loanId,
@@ -507,7 +492,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         GetLoansLoanIdTransactions targetTransaction = eventCheckHelper.findNthTransaction(nthItemStr, transactionType, transactionDate,
                 loanId);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = LoanRequestFactory.defaultTransactionUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = loanRequestFactory.defaultTransactionUndoRequest()
                 .transactionDate(transactionDate);
 
         CallFailedRuntimeException exception = fail(() -> fineractClient.loanTransactions().adjustLoanTransaction(loanId,
@@ -527,7 +512,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         GetLoansLoanIdTransactions targetTransaction = eventCheckHelper.findNthTransaction(nthItemStr, transactionType, transactionDate,
                 loanId);
 
-        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = LoanRequestFactory.defaultTransactionUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = loanRequestFactory.defaultTransactionUndoRequest()
                 .transactionDate(transactionDate);
 
         CallFailedRuntimeException exception = fail(() -> fineractClient.loanTransactions().adjustLoanTransaction(loanId,
@@ -548,7 +533,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
         List<GetLoansLoanIdTransactions> transactions = ok(
-                () -> fineractClient.loans().retrieveLoan(loanId, Map.<String, Object>of("associations", "transactions")))
+                () -> fineractClient.loans().retrieveOneLoan(loanId, Map.<String, Object>of("associations", "transactions")))
                 .getTransactions();
 
         // check that here are 2 transactions - target and linked
@@ -556,7 +541,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
 
         GetLoansLoanIdTransactions targetTransaction = eventCheckHelper.getNthTransactionType(nthItemStr, transactionType, transactionDate,
                 transactions);
-        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = LoanRequestFactory.defaultTransactionUndoRequest()
+        PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = loanRequestFactory.defaultTransactionUndoRequest()
                 .transactionDate(transactionDate);
         PostLoansLoanIdTransactionsResponse transactionUndoResponse = ok(() -> fineractClient.loanTransactions()
                 .adjustLoanTransaction(loanId, targetTransaction.getId(), transactionUndoRequest, Map.<String, Object>of()));
@@ -576,7 +561,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
         GetLoansLoanIdTransactionsTransactionIdResponse transactionResponse = ok(() -> fineractClient.loanTransactions()
-                .retrieveTransaction(loanId, repaymentResponse.getResourceId(), Map.<String, Object>of()));
+                .retrieveOneLoanTransaction(loanId, repaymentResponse.getResourceId(), Map.<String, Object>of()));
         assertThat(transactionResponse.getAmount()).isEqualTo(repaymentAmount);
         assertThat(transactionResponse.getPaymentDetailData().getPaymentType().getName()).isEqualTo(paymentType);
     }
@@ -594,7 +579,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId1 = loanResponse.getLoanId();
 
-        GetLoansLoanIdResponse getLoansLoanIdResponseCall = ok(() -> fineractClient.loans().retrieveLoan(loanId1,
+        GetLoansLoanIdResponse getLoansLoanIdResponseCall = ok(() -> fineractClient.loans().retrieveOneLoan(loanId1,
                 Map.<String, Object>of("staffInSelectedOfficeOnly", false, "associations", "all", "exclude", "guarantors,futureSchedule")));
 
         List<GetLoansLoanIdRepaymentPeriod> periods = getLoansLoanIdResponseCall.getRepaymentSchedule().getPeriods();
@@ -627,17 +612,41 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         adjustNthRepaymentWithExternalOwnerCheck(nthItemStr, transactionDate, amount, null);
     }
 
+    public Double getLoanTransactionAmountToPayOff(PostLoansResponse loanResponse, String transactionDate) {
+        long loanId1 = loanResponse.getLoanId();
+        GetLoansLoanIdTransactionsTemplateResponse response = ok(
+                () -> fineractClient.loanTransactions().retrieveTemplateLoanTransaction(loanId1, Map.<String, Object>of("command",
+                        "prepayLoan", "dateFormat", DATE_FORMAT, "transactionDate", transactionDate, "locale", DEFAULT_LOCALE)));
+        return response.getAmount();
+    }
+
     @When("Loan Pay-off is made on {string}")
     public void makeLoanPayOff(String transactionDate) throws IOException {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
-        long loanId1 = loanResponse.getLoanId();
-        GetLoansLoanIdTransactionsTemplateResponse response = ok(
-                () -> fineractClient.loanTransactions().retrieveTransactionTemplate(loanId1, Map.<String, Object>of("command", "prepayLoan",
-                        "dateFormat", DATE_FORMAT, "transactionDate", transactionDate, "locale", DEFAULT_LOCALE)));
-        Double transactionAmount = response.getAmount();
+        Double transactionAmount = getLoanTransactionAmountToPayOff(loanResponse, transactionDate);
 
         log.debug("%n--- Loan Pay-off with amount: {} ---", transactionAmount);
         makeRepayment(DEFAULT_REPAYMENT_TYPE, transactionDate, transactionAmount, null);
+    }
+
+    @When("Loan Pay-off is made on {string} with transfer external owner")
+    public void makeLoanPayOffWithTransferExternalOwner(String transactionDate) {
+        PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
+        String transferExternalOwnerId = testContext().get(TestContextKey.ASSET_EXTERNALIZATION_OWNER_EXTERNAL_ID);
+        Double transactionAmount = getLoanTransactionAmountToPayOff(loanResponse, transactionDate);
+
+        log.debug("%n--- Loan Pay-off with transfer external owner and with amount: {} ---", transactionAmount);
+        makeRepayment(DEFAULT_REPAYMENT_TYPE, transactionDate, transactionAmount, transferExternalOwnerId);
+    }
+
+    @When("Loan Pay-off is made on {string} with previous transfer external owner")
+    public void makeLoanPayOffWithOtherTransferExternalOwner(String transactionDate) {
+        PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
+        String transferExternalOwnerId = testContext().get(TestContextKey.ASSET_EXTERNALIZATION_PREVIOUS_OWNER_EXTERNAL_ID);
+        Double transactionAmount = getLoanTransactionAmountToPayOff(loanResponse, transactionDate);
+
+        log.debug("%n--- Loan Pay-off with transfer external owner and amount: {} ---", transactionAmount);
+        makeRepayment(DEFAULT_REPAYMENT_TYPE, transactionDate, transactionAmount, transferExternalOwnerId);
     }
 
     private void adjustNthRepaymentWithExternalOwnerCheck(String nthItemStr, String transactionDate, String amount, String externalOwnerId)
@@ -645,14 +654,14 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
         List<GetLoansLoanIdTransactions> transactions = ok(
-                () -> fineractClient.loans().retrieveLoan(loanId, Map.<String, Object>of("associations", "transactions")))
+                () -> fineractClient.loans().retrieveOneLoan(loanId, Map.<String, Object>of("associations", "transactions")))
                 .getTransactions();
 
         int nthItem = Integer.parseInt(nthItemStr) - 1;
         GetLoansLoanIdTransactions targetTransaction = transactions.stream().filter(t -> Boolean.TRUE.equals(t.getType().getRepayment()))
                 .toList().get(nthItem);
         double amountValue = Double.parseDouble(amount);
-        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = LoanRequestFactory.defaultRepaymentAdjustRequest(amountValue)
+        PostLoansLoanIdTransactionsTransactionIdRequest repaymentUndoRequest = loanRequestFactory.defaultRepaymentAdjustRequest(amountValue)
                 .transactionDate(transactionDate).dateFormat(DATE_FORMAT).locale(DEFAULT_LOCALE);
 
         PostLoansLoanIdTransactionsResponse repaymentAdjustmentResponse = ok(() -> fineractClient.loanTransactions()
@@ -699,7 +708,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
         assert loanResponse != null;
         final long loanId = loanResponse.getLoanId();
         final List<GetLoansLoanIdTransactions> transactions = ok(
-                () -> fineractClient.loans().retrieveLoan(loanId, Map.<String, Object>of("associations", "transactions")))
+                () -> fineractClient.loans().retrieveOneLoan(loanId, Map.<String, Object>of("associations", "transactions")))
                 .getTransactions();
 
         final int nthItem = Integer.parseInt(nthItemStr) - 1;
@@ -709,7 +718,7 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
             return transactionDate.equals(formatter.format(t.getDate()));
         }).toList().get(nthItem);
 
-        final PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = LoanRequestFactory.defaultTransactionUndoRequest()
+        final PostLoansLoanIdTransactionsTransactionIdRequest transactionUndoRequest = loanRequestFactory.defaultTransactionUndoRequest()
                 .transactionDate(transactionDate);
 
         final CallFailedRuntimeException exception = fail(() -> fineractClient.loanTransactions().adjustLoanTransaction(loanId,

@@ -694,6 +694,27 @@ public class ExternalEventConfigurationHelper {
         savingsAccountForceWithdrawalBusinessEvent.put("enabled", false);
         defaults.add(savingsAccountForceWithdrawalBusinessEvent);
 
+        Map<String, Object> workingCapitalLoanDiscountDisbursalTransactionBusinessEvent = new HashMap<>();
+        workingCapitalLoanDiscountDisbursalTransactionBusinessEvent.put("type", "WorkingCapitalLoanDiscountFeeTransactionBusinessEvent");
+        workingCapitalLoanDiscountDisbursalTransactionBusinessEvent.put("enabled", false);
+        defaults.add(workingCapitalLoanDiscountDisbursalTransactionBusinessEvent);
+
+        Map<String, Object> workingCapitalLoanDiscountFeeAdjustmentTransactionBusinessEvent = new HashMap<>();
+        workingCapitalLoanDiscountFeeAdjustmentTransactionBusinessEvent.put("type",
+                "WorkingCapitalLoanDiscountFeeAdjustmentTransactionBusinessEvent");
+        workingCapitalLoanDiscountFeeAdjustmentTransactionBusinessEvent.put("enabled", false);
+        defaults.add(workingCapitalLoanDiscountFeeAdjustmentTransactionBusinessEvent);
+
+        Map<String, Object> workingCapitalLoanChargeAdjustmentPreBusinessEvent = new HashMap<>();
+        workingCapitalLoanChargeAdjustmentPreBusinessEvent.put("type", "WorkingCapitalLoanChargeAdjustmentPreBusinessEvent");
+        workingCapitalLoanChargeAdjustmentPreBusinessEvent.put("enabled", false);
+        defaults.add(workingCapitalLoanChargeAdjustmentPreBusinessEvent);
+
+        Map<String, Object> workingCapitalLoanChargeAdjustmentPostBusinessEvent = new HashMap<>();
+        workingCapitalLoanChargeAdjustmentPostBusinessEvent.put("type", "WorkingCapitalLoanChargeAdjustmentPostBusinessEvent");
+        workingCapitalLoanChargeAdjustmentPostBusinessEvent.put("enabled", false);
+        defaults.add(workingCapitalLoanChargeAdjustmentPostBusinessEvent);
+
         return defaults;
     }
 

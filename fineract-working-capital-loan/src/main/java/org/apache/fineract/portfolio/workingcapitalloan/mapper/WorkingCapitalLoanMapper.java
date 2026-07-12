@@ -19,14 +19,10 @@
 package org.apache.fineract.portfolio.workingcapitalloan.mapper;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.fineract.infrastructure.core.config.MapstructMapperConfig;
 import org.apache.fineract.infrastructure.core.data.StringEnumOptionData;
 import org.apache.fineract.organisation.monetary.data.CurrencyData;
-import org.apache.fineract.portfolio.client.data.ClientData;
-import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.delinquency.mapper.DelinquencyBucketMapper;
 import org.apache.fineract.portfolio.loanaccount.data.LoanApplicationTimelineData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanStatusEnumData;
@@ -35,54 +31,73 @@ import org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations;
 import org.apache.fineract.portfolio.workingcapitalloan.data.WorkingCapitalLoanData;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoan;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoanDisbursementDetails;
-import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoanPaymentAllocationRule;
 import org.apache.fineract.portfolio.workingcapitalloanbreach.mapper.WorkingCapitalBreachMapper;
-import org.apache.fineract.portfolio.workingcapitalloanproduct.data.WorkingCapitalPaymentAllocationData;
+import org.apache.fineract.portfolio.workingcapitalloannearbreach.mapper.WorkingCapitalNearBreachMapper;
 import org.apache.fineract.portfolio.workingcapitalloanproduct.domain.WorkingCapitalLoanProductRelatedDetails;
-import org.apache.fineract.portfolio.workingcapitalloanproduct.domain.WorkingCapitalPaymentAllocationType;
 import org.apache.fineract.portfolio.workingcapitalloanproduct.mapper.WorkingCapitalLoanProductMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-import org.mapstruct.factory.Mappers;
 
 @Mapper(config = MapstructMapperConfig.class, uses = { DelinquencyBucketMapper.class, WorkingCapitalLoanProductMapper.class,
         WorkingCapitalLoanBalanceMapper.class, WorkingCapitalLoanDisbursementDetailMapper.class, WorkingCapitalLoanTransactionMapper.class,
-        WorkingCapitalBreachMapper.class })
+        WorkingCapitalBreachMapper.class, WorkingCapitalNearBreachMapper.class, WorkingCapitalLoanSummaryDataMapper.class,
+        WorkingCapitalLoanPaymentAllocationMapper.class })
 public interface WorkingCapitalLoanMapper {
 
     @Mapping(target = "accountNo", source = "accountNumber")
-    @Mapping(target = "client", source = "client", qualifiedByName = "clientToData")
-    @Mapping(target = "officeId", source = "client.office.id")
+    @Mapping(target = "client", ignore = true)
+    @Mapping(target = "clientId", source = "client.id")
+    @Mapping(target = "clientAccountNo", source = "client.accountNumber")
+    @Mapping(target = "clientName", source = "client.displayName")
+    @Mapping(target = "clientExternalId", source = "client.externalId")
+    @Mapping(target = "clientOfficeId", source = "client.office.id")
     @Mapping(target = "fundId", source = "fund.id")
     @Mapping(target = "fundName", source = "fund.name")
-    @Mapping(target = "product", source = "loanProduct")
+    @Mapping(target = "product", ignore = true)
+    @Mapping(target = "loanProductId", source = "loanProduct.id")
+    @Mapping(target = "loanProductName", source = "loanProduct.name")
+    @Mapping(target = "loanProductDescription", source = "loanProduct.description")
     @Mapping(target = "status", source = "loanStatus", qualifiedByName = "loanStatusData")
     @Mapping(target = "currency", source = "loanProductRelatedDetails", qualifiedByName = "monetaryCurrencyToCurrencyData")
-    @Mapping(target = "periodPaymentRate", source = "loanProductRelatedDetails.periodPaymentRate")
+    @Mapping(target = "paymentRate", source = "loanProductRelatedDetails.periodPaymentRate")
     @Mapping(target = "repaymentEvery", source = "loanProductRelatedDetails.repaymentEvery")
     @Mapping(target = "repaymentFrequencyType", source = "loanProductRelatedDetails", qualifiedByName = "repaymentFrequencyTypeData")
-    @Mapping(target = "discount", source = "loanProductRelatedDetails.discount")
+    @Mapping(target = "discountFee", source = "loanProductRelatedDetails.discount")
+    @Mapping(target = "proposedDiscountFee", source = "loanProductRelatedDetails.discountProposed")
+    @Mapping(target = "approvedDiscountFee", source = "loanProductRelatedDetails.discountApproved")
     @Mapping(target = "breach", source = "loanProductRelatedDetails.breach")
+    @Mapping(target = "nearBreach", source = "loanProductRelatedDetails.nearBreach")
     @Mapping(target = "delinquencyBucket", source = "loanProductRelatedDetails.delinquencyBucket")
     @Mapping(target = "balance", source = "balance")
     @Mapping(target = "paymentAllocation", source = "paymentAllocationRules", qualifiedByName = "paymentAllocationRulesToData")
     @Mapping(target = "timeline", source = "loan", qualifiedByName = "timelineData")
     @Mapping(target = "disbursementDetails", source = "disbursementDetails")
-    @Mapping(target = "transactions", source = "transactions")
     @Mapping(target = "delinquencyGraceDays", source = "loanProductRelatedDetails.delinquencyGraceDays")
     @Mapping(target = "delinquencyStartType", source = "loanProductRelatedDetails", qualifiedByName = "delinquencyStartTypeData")
-    @Mapping(target = "collectionData", ignore = true)
+    @Mapping(target = "breachGraceDays", source = "loanProductRelatedDetails.breachGraceDays")
+    @Mapping(target = "breachStartDate", ignore = true)
+    @Mapping(target = "delinquencyStartDate", ignore = true)
+    @Mapping(target = "delinquent", ignore = true)
+    @Mapping(target = "numberOfRepayments", ignore = true)
+    @Mapping(target = "periodPaymentAmount", ignore = true)
+    @Mapping(target = "dailyEir", ignore = true)
+    @Mapping(target = "calculatedAnnualEir", ignore = true)
+    @Mapping(target = "summary", source = ".", qualifiedByName = "toSummaryData")
+    @Mapping(target = "totalPaymentVolume", source = "totalPaymentVolume")
+    @Mapping(target = "principal", source = "loanProductRelatedDetails.principal")
+    @Mapping(target = "amortizationType", source = "loanProductRelatedDetails", qualifiedByName = "amortizationTypeData")
+    @Mapping(target = "npvDayCount", source = "loanProductRelatedDetails.npvDayCount")
+    @Mapping(target = "loanProductCounter", source = "loanProductCounter")
+    @Mapping(target = "enableInstallmentLevelDelinquency", source = "loanProductRelatedDetails", qualifiedByName = "installmentLevelDelinquencyEnabled")
+    @Mapping(target = "netDisbursalAmount", ignore = true)
+    @Mapping(target = "charges", ignore = true)
+    @Mapping(target = "originators", ignore = true)
+    @Mapping(target = "fraud", ignore = true)
+    @Mapping(target = "chargedOff", ignore = true)
     WorkingCapitalLoanData toData(WorkingCapitalLoan loan);
 
     List<WorkingCapitalLoanData> toDataList(List<WorkingCapitalLoan> loans);
-
-    @Named("clientToData")
-    default ClientData clientToData(final Client client) {
-        ClientData clientData = ClientData.instance(client.getId(), client.getDisplayName());
-        clientData.setAccountNo(client.getAccountNumber());
-        return clientData;
-    }
 
     @Named("loanStatusData")
     default LoanStatusEnumData loanStatusData(final LoanStatus loanStatus) {
@@ -106,24 +121,15 @@ public interface WorkingCapitalLoanMapper {
                 : null;
     }
 
-    @Named("paymentAllocationRulesToData")
-    default List<WorkingCapitalPaymentAllocationData> paymentAllocationRulesToData(
-            final List<WorkingCapitalLoanPaymentAllocationRule> rules) {
-        if (rules == null || rules.isEmpty()) {
-            return null;
-        }
-        final List<WorkingCapitalPaymentAllocationData> result = new ArrayList<>();
-        for (WorkingCapitalLoanPaymentAllocationRule rule : rules) {
-            final AtomicInteger counter = new AtomicInteger(1);
-            final List<WorkingCapitalPaymentAllocationData.PaymentAllocationOrder> orders = new ArrayList<>();
-            if (rule.getAllocationTypes() != null) {
-                for (WorkingCapitalPaymentAllocationType type : rule.getAllocationTypes()) {
-                    orders.add(new WorkingCapitalPaymentAllocationData.PaymentAllocationOrder(type.name(), counter.getAndIncrement()));
-                }
-            }
-            result.add(new WorkingCapitalPaymentAllocationData(rule.getTransactionType(), orders));
-        }
-        return result;
+    @Named("amortizationTypeData")
+    default StringEnumOptionData amortizationTypeData(final WorkingCapitalLoanProductRelatedDetails detail) {
+        return (detail != null && detail.getAmortizationType() != null) ? detail.getAmortizationType().getValueAsStringEnumOptionData()
+                : null;
+    }
+
+    @Named("installmentLevelDelinquencyEnabled")
+    default Boolean installmentLevelDelinquencyEnabled(final WorkingCapitalLoanProductRelatedDetails detail) {
+        return detail != null && detail.getDelinquencyBucket() != null;
     }
 
     @Named("timelineData")
@@ -160,10 +166,6 @@ public interface WorkingCapitalLoanMapper {
             timelineData.setRejectedByFirstname(loan.getRejectedBy().getFirstname());
             timelineData.setRejectedByLastname(loan.getRejectedBy().getLastname());
             timelineData.setRejectedOnDate(loan.getRejectedOnDate());
-        }
-        if (loan.getDisbursementDetails() != null && !loan.getDisbursementDetails().isEmpty()) {
-            timelineData.setDisbursementDetails(
-                    Mappers.getMapper(WorkingCapitalLoanDisbursementDetailMapper.class).toDataList(loan.getDisbursementDetails()));
         }
         return timelineData;
     }

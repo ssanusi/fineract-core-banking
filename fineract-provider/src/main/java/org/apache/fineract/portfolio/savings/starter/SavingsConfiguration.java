@@ -27,6 +27,7 @@ import org.apache.fineract.infrastructure.configuration.domain.ConfigurationDoma
 import org.apache.fineract.infrastructure.core.data.PaginationParametersDataValidator;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
 import org.apache.fineract.infrastructure.dataqueries.data.DataTableValidator;
@@ -89,6 +90,7 @@ import org.apache.fineract.portfolio.savings.domain.SavingsAccountChargeAssemble
 import org.apache.fineract.portfolio.savings.domain.SavingsAccountChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccountRepositoryWrapper;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccountTransactionRepository;
+import org.apache.fineract.portfolio.savings.domain.SavingsAccountTransactionSummaryWrapper;
 import org.apache.fineract.portfolio.savings.domain.SavingsHelper;
 import org.apache.fineract.portfolio.savings.domain.SavingsProductAssembler;
 import org.apache.fineract.portfolio.savings.domain.SavingsProductRepository;
@@ -116,12 +118,16 @@ import org.apache.fineract.portfolio.savings.service.GroupSavingsIndividualMonit
 import org.apache.fineract.portfolio.savings.service.GroupSavingsIndividualMonitoringWritePlatformServiceImpl;
 import org.apache.fineract.portfolio.savings.service.RecurringDepositProductWritePlatformService;
 import org.apache.fineract.portfolio.savings.service.RecurringDepositProductWritePlatformServiceJpaRepositoryImpl;
+import org.apache.fineract.portfolio.savings.service.SavingsAccountActivationService;
+import org.apache.fineract.portfolio.savings.service.SavingsAccountActivationServiceImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountApplicationTransitionApiJsonValidator;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountChargeReadPlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountChargeReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountDomainService;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountInterestPostingService;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountInterestPostingServiceImpl;
+import org.apache.fineract.portfolio.savings.service.SavingsAccountPostInterestService;
+import org.apache.fineract.portfolio.savings.service.SavingsAccountPostInterestServiceImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountReadPlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountTemplateReadPlatformService;
@@ -220,6 +226,7 @@ public class SavingsConfiguration {
     public DepositAccountWritePlatformService depositAccountWritePlatformService(PlatformSecurityContext context,
             SavingsAccountRepositoryWrapper savingAccountRepositoryWrapper,
             SavingsAccountTransactionRepository savingsAccountTransactionRepository, DepositAccountAssembler depositAccountAssembler,
+            SavingsAccountPostInterestService savingsAccountPostInterestService,
             DepositAccountTransactionDataValidator depositAccountTransactionDataValidator,
             SavingsAccountChargeDataValidator savingsAccountChargeDataValidator,
             PaymentDetailWritePlatformService paymentDetailWritePlatformService,
@@ -236,12 +243,13 @@ public class SavingsConfiguration {
 
     ) {
         return new DepositAccountWritePlatformServiceJpaRepositoryImpl(context, savingAccountRepositoryWrapper,
-                savingsAccountTransactionRepository, depositAccountAssembler, depositAccountTransactionDataValidator,
-                savingsAccountChargeDataValidator, paymentDetailWritePlatformService, applicationCurrencyRepositoryWrapper,
-                journalEntryWritePlatformService, depositAccountDomainService, noteRepository, accountTransfersReadPlatformService,
-                chargeRepository, savingsAccountChargeRepository, accountAssociationsReadPlatformService,
-                accountTransfersWritePlatformService, depositAccountReadPlatformService, calendarInstanceRepository,
-                configurationDomainService, holidayRepository, workingDaysRepository, depositAccountOnHoldTransactionRepository);
+                savingsAccountTransactionRepository, depositAccountAssembler, savingsAccountPostInterestService,
+                depositAccountTransactionDataValidator, savingsAccountChargeDataValidator, paymentDetailWritePlatformService,
+                applicationCurrencyRepositoryWrapper, journalEntryWritePlatformService, depositAccountDomainService, noteRepository,
+                accountTransfersReadPlatformService, chargeRepository, savingsAccountChargeRepository,
+                accountAssociationsReadPlatformService, accountTransfersWritePlatformService, depositAccountReadPlatformService,
+                calendarInstanceRepository, configurationDomainService, holidayRepository, workingDaysRepository,
+                depositAccountOnHoldTransactionRepository);
     }
 
     @Bean
@@ -335,12 +343,27 @@ public class SavingsConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(SavingsAccountPostInterestService.class)
+    public SavingsAccountPostInterestService savingsAccountPostInterestService(
+            SavingsAccountTransactionSummaryWrapper savingsAccountTransactionSummaryWrapper) {
+        return new SavingsAccountPostInterestServiceImpl(savingsAccountTransactionSummaryWrapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(SavingsAccountActivationService.class)
+    public SavingsAccountActivationService savingsAccountActivationService(
+            SavingsAccountPostInterestService savingsAccountPostInterestService) {
+        return new SavingsAccountActivationServiceImpl(savingsAccountPostInterestService);
+    }
+
+    @Bean
     @ConditionalOnMissingBean(SavingsAccountReadPlatformService.class)
     public SavingsAccountReadPlatformService savingsAccountReadPlatformService(PlatformSecurityContext context, JdbcTemplate jdbcTemplate,
             SavingsAccountAssembler savingAccountAssembler, PaginationHelper paginationHelper, DatabaseSpecificSQLGenerator sqlGenerator,
-            SavingsAccountRepositoryWrapper savingsAccountRepositoryWrapper, ColumnValidator columnValidator) {
+            SavingsAccountRepositoryWrapper savingsAccountRepositoryWrapper, ColumnValidator columnValidator,
+            SavingsAccountTransactionRepository savingsAccountTransactionRepository) {
         return new SavingsAccountReadPlatformServiceImpl(context, jdbcTemplate, savingAccountAssembler, paginationHelper, columnValidator,
-                sqlGenerator, savingsAccountRepositoryWrapper);
+                sqlGenerator, savingsAccountRepositoryWrapper, savingsAccountTransactionRepository);
     }
 
     @Bean
@@ -373,6 +396,8 @@ public class SavingsConfiguration {
             EntityDatatableChecksWritePlatformService entityDatatableChecksWritePlatformService, AppUserRepositoryWrapper appuserRepository,
             StandingInstructionRepository standingInstructionRepository, BusinessEventNotifierService businessEventNotifierService,
             GSIMRepositoy gsimRepository, SavingsAccountInterestPostingService savingsAccountInterestPostingService,
+            SavingsAccountPostInterestService savingsAccountPostInterestService,
+            SavingsAccountActivationService savingsAccountActivationService, ExternalIdFactory externalIdFactory,
             ErrorHandler errorHandler) {
         return new SavingsAccountWritePlatformServiceJpaRepositoryImpl(context, fromApiJsonDeserializer, savingAccountRepositoryWrapper,
                 staffRepository, savingsAccountTransactionRepository, savingAccountAssembler, savingsAccountTransactionDataValidator,
@@ -381,7 +406,7 @@ public class SavingsConfiguration {
                 chargeRepository, savingsAccountChargeRepository, holidayRepository, workingDaysRepository, configurationDomainService,
                 depositAccountOnHoldTransactionRepository, entityDatatableChecksWritePlatformService, appuserRepository,
                 standingInstructionRepository, businessEventNotifierService, gsimRepository, savingsAccountInterestPostingService,
-                errorHandler);
+                savingsAccountPostInterestService, savingsAccountActivationService, externalIdFactory, errorHandler);
     }
 
     @Bean

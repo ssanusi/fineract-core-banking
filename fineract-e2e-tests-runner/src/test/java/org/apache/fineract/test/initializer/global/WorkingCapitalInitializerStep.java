@@ -19,6 +19,13 @@
 package org.apache.fineract.test.initializer.global;
 
 import static org.apache.fineract.client.feign.util.FeignCalls.ok;
+import static org.apache.fineract.test.factory.WorkingCapitalRequestFactory.DUE_FEE;
+import static org.apache.fineract.test.factory.WorkingCapitalRequestFactory.DUE_PENALTY;
+import static org.apache.fineract.test.factory.WorkingCapitalRequestFactory.DUE_PRINCIPAL;
+import static org.apache.fineract.test.factory.WorkingCapitalRequestFactory.IN_ADVANCE_FEE;
+import static org.apache.fineract.test.factory.WorkingCapitalRequestFactory.IN_ADVANCE_PENALTY;
+import static org.apache.fineract.test.factory.WorkingCapitalRequestFactory.IN_ADVANCE_PRINCIPAL;
+import static org.apache.fineract.test.factory.WorkingCapitalRequestFactory.createPaymentAllocation;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,10 +35,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.client.feign.FineractFeignClient;
 import org.apache.fineract.client.models.GetWorkingCapitalLoanProductsResponse;
 import org.apache.fineract.client.models.PostAllowAttributeOverrides;
+import org.apache.fineract.client.models.PostPaymentAllocation;
 import org.apache.fineract.client.models.PostWorkingCapitalLoanProductsRequest;
 import org.apache.fineract.client.models.PostWorkingCapitalLoanProductsResponse;
+import org.apache.fineract.test.data.accounttype.AccountTypeResolver;
+import org.apache.fineract.test.data.accounttype.DefaultAccountType;
+import org.apache.fineract.test.data.codevalue.CodeValueResolver;
+import org.apache.fineract.test.data.codevalue.DefaultCodeValue;
+import org.apache.fineract.test.data.paymenttype.DefaultPaymentType;
+import org.apache.fineract.test.data.paymenttype.PaymentTypeResolver;
 import org.apache.fineract.test.data.workingcapitalproduct.DefaultWorkingCapitalLoanProduct;
 import org.apache.fineract.test.factory.WorkingCapitalRequestFactory;
+import org.apache.fineract.test.helper.CodeHelper;
+import org.apache.fineract.test.helper.ParallelExecutionHelper;
 import org.apache.fineract.test.support.TestContext;
 import org.apache.fineract.test.support.TestContextKey;
 import org.springframework.stereotype.Component;
@@ -43,61 +59,177 @@ public class WorkingCapitalInitializerStep implements FineractGlobalInitializerS
 
     private final FineractFeignClient fineractClient;
     private final WorkingCapitalRequestFactory workingCapitalRequestFactory;
+    private final PaymentTypeResolver paymentTypeResolver;
+    private final AccountTypeResolver accountTypeResolver;
+    private final CodeValueResolver codeValueResolver;
+    private final CodeHelper codeHelper;
 
     @Override
     public void initialize() throws Exception {
-
-        final String workingCapitalProductDefaultName = DefaultWorkingCapitalLoanProduct.WCLP.getName();
-        final PostWorkingCapitalLoanProductsRequest defaultWCPLRequest = workingCapitalRequestFactory
-                .defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest() //
-                .name(workingCapitalProductDefaultName); //
-        final PostWorkingCapitalLoanProductsResponse responseDefaultWCPL = createWorkingCapitalLoanProductIdempotent(defaultWCPLRequest);
-        TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP, responseDefaultWCPL);
-
-        final String workingCapitalProductDiscountDefaultName = DefaultWorkingCapitalLoanProduct.WCLP_DISCOUNT.getName();
-        final PostWorkingCapitalLoanProductsRequest defaultWCPLPDiscountRequest = workingCapitalRequestFactory
-                .defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest() //
-                .name(workingCapitalProductDiscountDefaultName) //
-                .discount(new BigDecimal(50)); //
-        final PostWorkingCapitalLoanProductsResponse responseDefaultWCPLDiscount = createWorkingCapitalLoanProductIdempotent(
-                defaultWCPLPDiscountRequest);
-        TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DISCOUNT,
-                responseDefaultWCPLDiscount);
-
-        final String workingCapitalProductDisallowOverridesDefaultName = DefaultWorkingCapitalLoanProduct.WCLP_DISALLOW_ATTRIBUTES_OVERRIDE
-                .getName();
-        final PostWorkingCapitalLoanProductsRequest defaultWCPLDisallowOverridesRequest = workingCapitalRequestFactory
-                .defaultWorkingCapitalLoanProductRequest() //
-                .name(workingCapitalProductDisallowOverridesDefaultName); //
-        final PostWorkingCapitalLoanProductsResponse responseDefaultWCPLDisallowOverrides = createWorkingCapitalLoanProductIdempotent(
-                defaultWCPLDisallowOverridesRequest);
-        TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DISALLOW_OVERRIDES,
-                responseDefaultWCPLDisallowOverrides);
-
-        final String workingCapitalProductDiscountDisallowOverridesDefaultName = DefaultWorkingCapitalLoanProduct.WCLP_DISCOUNT_DISALLOW_ATTRIBUTES_OVERRIDE
-                .getName();
         PostAllowAttributeOverrides allowAttributeOverridesDisabled = new PostAllowAttributeOverrides()
                 .delinquencyBucketClassification(false).discountDefault(false).periodPaymentFrequencyType(false)
-                .periodPaymentFrequency(false);
-        final PostWorkingCapitalLoanProductsRequest defaultWCPLDiscountDisallowOverridesRequest = workingCapitalRequestFactory
-                .defaultWorkingCapitalLoanProductRequest() //
-                .name(workingCapitalProductDiscountDisallowOverridesDefaultName) //
-                .discount(new BigDecimal(50)) //
-                .allowAttributeOverrides(allowAttributeOverridesDisabled); //
-        final PostWorkingCapitalLoanProductsResponse responseDefaultWCPLDiscountDisallowOverrides = createWorkingCapitalLoanProductIdempotent(
-                defaultWCPLDiscountDisallowOverridesRequest);
-        TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DISCOUNT_DISALLOW_OVERRIDES,
-                responseDefaultWCPLDiscountDisallowOverrides);
+                .periodPaymentFrequency(false).breach(false);
 
-        final String workingCapitalProductForUpdateName = DefaultWorkingCapitalLoanProduct.WCLP_FOR_UPDATE.getName();
-        final PostWorkingCapitalLoanProductsRequest defaultForUpdateWCPLRequest = workingCapitalRequestFactory
-                .defaultWorkingCapitalLoanProductRequest() //
-                .name(workingCapitalProductForUpdateName); //
-        final PostWorkingCapitalLoanProductsResponse responseForUpdateWCPL = createWorkingCapitalLoanProductIdempotent(
-                defaultForUpdateWCPLRequest);
-        TestContext.GLOBAL.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_REQUEST_FOR_UPDATE_WCLP,
-                defaultForUpdateWCPLRequest);
-        TestContext.GLOBAL.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_FOR_UPDATE_WCLP, responseForUpdateWCPL);
+        PostAllowAttributeOverrides allowAttributeOverrides = new PostAllowAttributeOverrides().delinquencyBucketClassification(true)
+                .breach(true).discountDefault(true).periodPaymentFrequencyType(true).periodPaymentFrequency(true);
+
+        // Retrieve code IDs for charge-off and write-off reasons
+        final Long chargeOffReasonCodeId = codeHelper.retrieveCodeByName("ChargeOffReasons").getId();
+        final Long writeOffReasonCodeId = codeHelper.retrieveCodeByName("WriteOffReasons").getId();
+
+        List<Runnable> items = List.of(
+                () -> TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP,
+                        createWorkingCapitalLoanProductIdempotent(
+                                workingCapitalRequestFactory.defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest()
+                                        .name(DefaultWorkingCapitalLoanProduct.WCLP.getName()))),
+                () -> TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DISCOUNT,
+                        createWorkingCapitalLoanProductIdempotent(
+                                workingCapitalRequestFactory.defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest()
+                                        .name(DefaultWorkingCapitalLoanProduct.WCLP_DISCOUNT.getName()).discount(new BigDecimal(50)))),
+                () -> TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DISALLOW_OVERRIDES,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory.defaultWorkingCapitalLoanProductRequest()
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_DISALLOW_ATTRIBUTES_OVERRIDE.getName()))),
+                () -> TestContext.INSTANCE.set(
+                        TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DISCOUNT_DISALLOW_OVERRIDES,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory.defaultWorkingCapitalLoanProductRequest()
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_DISCOUNT_DISALLOW_ATTRIBUTES_OVERRIDE.getName())
+                                .discount(new BigDecimal(50)).allowAttributeOverrides(allowAttributeOverridesDisabled))),
+                () -> {
+                    PostWorkingCapitalLoanProductsRequest req = workingCapitalRequestFactory.defaultWorkingCapitalLoanProductRequest()
+                            .name(DefaultWorkingCapitalLoanProduct.WCLP_FOR_UPDATE.getName());
+                    PostWorkingCapitalLoanProductsResponse response = createWorkingCapitalLoanProductIdempotent(req);
+                    TestContext.GLOBAL.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_REQUEST_FOR_UPDATE_WCLP, req);
+                    TestContext.GLOBAL.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_FOR_UPDATE_WCLP, response);
+                },
+                () -> TestContext.INSTANCE.set(
+                        TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DELINQUENCY_RESCHEDULE,
+                        createWorkingCapitalLoanProductIdempotent(
+                                workingCapitalRequestFactory.defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest()
+                                        .name(DefaultWorkingCapitalLoanProduct.WCLP_DELINQUENCY_RESCHEDULE.getName()))),
+                () -> TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_BREACH,
+                        createWorkingCapitalLoanProductIdempotent(
+                                workingCapitalRequestFactory.defaultWorkingCapitalLoanProductBreachRequest()
+                                        .name(DefaultWorkingCapitalLoanProduct.WCLP_BREACH.getName()))),
+                () -> TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_BREACH_NEAR_BREACH,
+                        createWorkingCapitalLoanProductIdempotent(
+                                workingCapitalRequestFactory.defaultWorkingCapitalLoanProductBreachNearBreachRequest()
+                                        .name(DefaultWorkingCapitalLoanProduct.WCLP_BREACH_NEAR_BREACH.getName()))),
+                () -> TestContext.INSTANCE.set(
+                        TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_BREACH_DISALLOW_OVERRIDES,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory
+                                .defaultWorkingCapitalLoanProductBreachRequest().allowAttributeOverrides(allowAttributeOverridesDisabled)
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_BREACH_DISALLOW_ATTRIBUTES_OVERRIDE.getName()))),
+                () -> TestContext.INSTANCE.set(
+                        TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_BREACH_NEAR_BREACH_DISALLOW_OVERRIDES,
+                        createWorkingCapitalLoanProductIdempotent(
+                                workingCapitalRequestFactory.defaultWorkingCapitalLoanProductBreachNearBreachRequest()
+                                        .allowAttributeOverrides(allowAttributeOverridesDisabled)
+                                        .name(DefaultWorkingCapitalLoanProduct.WCLP_BREACH_NEAR_BREACH_DISALLOW_ATTRIBUTES_OVERRIDE
+                                                .getName()))),
+                () -> TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_ADVANCED_ACCOUNTING,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory
+                                .defaultWorkingCapitalLoanProductRequestWithAccrualAccounting()
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_ADVANCED_ACCOUNTING.getName())
+                                .allowAttributeOverrides(allowAttributeOverrides)
+                                .overpaymentLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY))
+                                .paymentChannelToFundSourceMappings(
+                                        List.of(new org.apache.fineract.client.models.WorkingCapitalLoanPaymentChannelToFundSourceMappings()
+                                                .paymentTypeId(paymentTypeResolver.resolve(DefaultPaymentType.MONEY_TRANSFER))
+                                                .fundSourceAccountId(accountTypeResolver.resolve(DefaultAccountType.FUND_RECEIVABLES))))
+                                .chargeOffReasonToExpenseAccountMappings(List.of(
+                                        new org.apache.fineract.client.models.WorkingCapitalPostChargeOffReasonToExpenseAccountMappings()
+                                                .chargeOffReasonCodeValueId(
+                                                        codeValueResolver.resolve(chargeOffReasonCodeId, DefaultCodeValue.valueOf("FRAUD")))
+                                                .expenseAccountId(
+                                                        accountTypeResolver.resolve(DefaultAccountType.CREDIT_LOSS_BAD_DEBT_FRAUD))))
+                                .writeOffReasonsToExpenseMappings(List
+                                        .of(new org.apache.fineract.client.models.WorkingCapitalPostWriteOffReasonToExpenseAccountMappings()
+                                                .writeOffReasonCodeValueId(codeValueResolver.resolve(writeOffReasonCodeId,
+                                                        DefaultCodeValue.valueOf("BAD_DEBT")))
+                                                .expenseAccountId(accountTypeResolver.resolve(DefaultAccountType.CREDIT_LOSS_BAD_DEBT)))))),
+                () -> TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_ACC_DEF_REV_AM,
+                        createWorkingCapitalLoanProductIdempotent(
+                                workingCapitalRequestFactory.defaultWorkingCapitalLoanProductRequestWithAccrualAccounting()
+                                        .name(DefaultWorkingCapitalLoanProduct.WCLP_ACC_DEF_REV_AM.getName())
+                                        .allowAttributeOverrides(allowAttributeOverrides).overpaymentLiabilityAccountId(
+                                                accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY)))),
+                () -> TestContext.INSTANCE.set(TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_PERIOD_PAYMENT_RATE,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory
+                                .defaultWorkingCapitalLoanProductAllowAttributesOverrideRequest().minPeriodPaymentRate(new BigDecimal(1))
+                                .maxPeriodPaymentRate(new BigDecimal(95)).periodPaymentRate(new BigDecimal(10))
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_PERIOD_PAYMENT_RATE.getName()))),
+                () -> TestContext.INSTANCE.set(
+                        TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DUE_FEE_PENALTY_PRINCIPAL,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory
+                                .defaultWorkingCapitalLoanProductRequestWithAccrualAccounting()
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_DUE_FEE_PENALTY_PRINCIPAL.getName())
+                                .allowAttributeOverrides(allowAttributeOverrides)
+                                .overpaymentLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY))
+                                .paymentAllocation(List.of(
+                                        createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(),
+                                                List.of(DUE_FEE, DUE_PENALTY, DUE_PRINCIPAL, IN_ADVANCE_FEE, IN_ADVANCE_PENALTY,
+                                                        IN_ADVANCE_PRINCIPAL)),
+                                        createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.REPAYMENT.getValue(),
+                                                List.of(DUE_FEE, DUE_PENALTY, DUE_PRINCIPAL, IN_ADVANCE_FEE, IN_ADVANCE_PENALTY,
+                                                        IN_ADVANCE_PRINCIPAL))))
+                                .overpaymentLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY))
+                                .paymentChannelToFundSourceMappings(
+                                        List.of(new org.apache.fineract.client.models.WorkingCapitalLoanPaymentChannelToFundSourceMappings()
+                                                .paymentTypeId(paymentTypeResolver.resolve(DefaultPaymentType.MONEY_TRANSFER))
+                                                .fundSourceAccountId(accountTypeResolver.resolve(DefaultAccountType.FUND_RECEIVABLES)))))),
+                () -> TestContext.INSTANCE.set(
+                        TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_IN_ADVANCE_PENALTY_FEE_PRINCIPAL,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory
+                                .defaultWorkingCapitalLoanProductRequestWithAccrualAccounting()
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_IN_ADVANCE_PENALTY_FEE_PRINCIPAL.getName())
+                                .allowAttributeOverrides(allowAttributeOverrides)
+                                .overpaymentLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY))
+                                .paymentAllocation(List.of(
+                                        createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(),
+                                                List.of(IN_ADVANCE_PENALTY, IN_ADVANCE_FEE, IN_ADVANCE_PRINCIPAL, DUE_PENALTY, DUE_FEE,
+                                                        DUE_PRINCIPAL)),
+                                        createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.REPAYMENT.getValue(),
+                                                List.of(IN_ADVANCE_PENALTY, IN_ADVANCE_FEE, IN_ADVANCE_PRINCIPAL, DUE_PENALTY, DUE_FEE,
+                                                        DUE_PRINCIPAL))))
+                                .overpaymentLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY))
+                                .paymentChannelToFundSourceMappings(
+                                        List.of(new org.apache.fineract.client.models.WorkingCapitalLoanPaymentChannelToFundSourceMappings()
+                                                .paymentTypeId(paymentTypeResolver.resolve(DefaultPaymentType.MONEY_TRANSFER))
+                                                .fundSourceAccountId(accountTypeResolver.resolve(DefaultAccountType.FUND_RECEIVABLES)))))),
+                () -> TestContext.INSTANCE.set(
+                        TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DUE_FEE_PRINCIPAL_PENALTY,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory
+                                .defaultWorkingCapitalLoanProductRequestWithAccrualAccounting()
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_DUE_FEE_PRINCIPAL_PENALTY.getName())
+                                .allowAttributeOverrides(allowAttributeOverrides)
+                                .overpaymentLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY))
+                                .paymentAllocation(List.of(
+                                        createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(),
+                                                List.of(DUE_FEE, DUE_PRINCIPAL, DUE_PENALTY, IN_ADVANCE_FEE, IN_ADVANCE_PRINCIPAL,
+                                                        IN_ADVANCE_PENALTY)),
+                                        createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.REPAYMENT.getValue(),
+                                                List.of(DUE_FEE, DUE_PRINCIPAL, DUE_PENALTY, IN_ADVANCE_FEE, IN_ADVANCE_PRINCIPAL,
+                                                        IN_ADVANCE_PENALTY)))))),
+                () -> TestContext.INSTANCE.set(
+                        TestContextKey.DEFAULT_WORKING_CAPITAL_LOAN_PRODUCT_CREATE_RESPONSE_WCLP_DUE_PRINCIPAL_FEE_PENALTY,
+                        createWorkingCapitalLoanProductIdempotent(workingCapitalRequestFactory
+                                .defaultWorkingCapitalLoanProductRequestWithAccrualAccounting()
+                                .name(DefaultWorkingCapitalLoanProduct.WCLP_DUE_PRINCIPAL_FEE_PENALTY.getName())
+                                .allowAttributeOverrides(allowAttributeOverrides)
+                                .overpaymentLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY))
+                                .paymentAllocation(List.of(
+                                        createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.DEFAULT.getValue(),
+                                                List.of(DUE_PRINCIPAL, DUE_FEE, DUE_PENALTY, IN_ADVANCE_PRINCIPAL, IN_ADVANCE_FEE,
+                                                        IN_ADVANCE_PENALTY)),
+                                        createPaymentAllocation(PostPaymentAllocation.TransactionTypeEnum.REPAYMENT.getValue(),
+                                                List.of(DUE_PRINCIPAL, DUE_FEE, DUE_PENALTY, IN_ADVANCE_PRINCIPAL, IN_ADVANCE_FEE,
+                                                        IN_ADVANCE_PENALTY))))
+                                .overpaymentLiabilityAccountId(accountTypeResolver.resolve(DefaultAccountType.OTHER_CREDIT_LIABILITY))
+                                .paymentChannelToFundSourceMappings(
+                                        List.of(new org.apache.fineract.client.models.WorkingCapitalLoanPaymentChannelToFundSourceMappings()
+                                                .paymentTypeId(paymentTypeResolver.resolve(DefaultPaymentType.MONEY_TRANSFER))
+                                                .fundSourceAccountId(accountTypeResolver.resolve(DefaultAccountType.FUND_RECEIVABLES)))))));
+        ParallelExecutionHelper.runInParallel(items);
     }
 
     private PostWorkingCapitalLoanProductsResponse createWorkingCapitalLoanProductIdempotent(

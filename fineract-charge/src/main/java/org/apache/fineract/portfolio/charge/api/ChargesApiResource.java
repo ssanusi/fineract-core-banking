@@ -33,6 +33,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
@@ -41,6 +42,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.fineract.commands.domain.CommandWrapper;
 import org.apache.fineract.commands.service.CommandWrapperBuilder;
 import org.apache.fineract.commands.service.PortfolioCommandSourceWritePlatformService;
+import org.apache.fineract.infrastructure.core.annotation.AlternativeOperationId;
 import org.apache.fineract.infrastructure.core.api.ApiRequestParameterHelper;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
@@ -92,6 +94,7 @@ public class ChargesApiResource {
             Example Requests:
 
             charges/1""")
+    @AlternativeOperationId("retrieveCharge")
     @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ChargesApiResourceSwagger.GetChargesResponse.class)))
     public ChargeData retrieveCharge(@PathParam("chargeId") @Parameter(description = "chargeId") final Long chargeId,
             @Context final UriInfo uriInfo) {
@@ -101,7 +104,8 @@ public class ChargesApiResource {
 
         ChargeData charge = readPlatformService.retrieveCharge(chargeId);
         if (settings.isTemplate()) {
-            final ChargeData templateData = readPlatformService.retrieveNewChargeDetails();
+            final ChargeData templateData = readPlatformService.retrieveNewChargeDetails(charge.getChargeAppliesTo().getId(),
+                    charge.getChargeTimeType().getId());
             charge = ChargeData.withTemplate(charge, templateData);
         }
         return charge;
@@ -119,9 +123,11 @@ public class ChargesApiResource {
 
             charges/template
             """)
-    public ChargeData retrieveNewChargeDetails() {
+    @AlternativeOperationId("retrieveNewChargeDetails")
+    public ChargeData retrieveNewChargeDetails(@QueryParam("chargeAppliesTo") Long chargeAppliesTo,
+            @QueryParam("chargeTimeType") Long chargeTimeType) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
-        return readPlatformService.retrieveNewChargeDetails();
+        return readPlatformService.retrieveNewChargeDetails(chargeAppliesTo, chargeTimeType);
     }
 
     @POST

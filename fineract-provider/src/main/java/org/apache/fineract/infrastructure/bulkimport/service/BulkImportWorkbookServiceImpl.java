@@ -29,7 +29,6 @@ import java.time.LocalDate;
 import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.IOUtils;
 import org.apache.fineract.infrastructure.bulkimport.data.BulkImportEvent;
 import org.apache.fineract.infrastructure.bulkimport.data.GlobalEntityType;
 import org.apache.fineract.infrastructure.bulkimport.data.ImportData;
@@ -42,6 +41,7 @@ import org.apache.fineract.infrastructure.core.domain.JdbcSupport;
 import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
+import org.apache.fineract.infrastructure.core.service.TransactionBoundApplicationEventPublisher;
 import org.apache.fineract.infrastructure.documentmanagement.data.DocumentCreateRequest;
 import org.apache.fineract.infrastructure.documentmanagement.data.DocumentCreateResponse;
 import org.apache.fineract.infrastructure.documentmanagement.service.DocumentWritePlatformService;
@@ -51,7 +51,6 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.tika.Tika;
 import org.apache.tika.io.TikaInputStream;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
-import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
@@ -61,7 +60,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService {
 
-    private final ApplicationContext applicationContext;
+    private final TransactionBoundApplicationEventPublisher eventPublisher;
     private final PlatformSecurityContext securityContext;
     private final ImportDocumentRepository importDocumentRepository;
     private final DocumentWritePlatformService writePlatformService;
@@ -75,7 +74,7 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
         try {
             if (entity != null && inputStream != null && fileDetail != null && locale != null && dateFormat != null) {
                 final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                IOUtils.copy(inputStream, baos);
+                inputStream.transferTo(baos);
                 final byte[] bytes = baos.toByteArray();
                 InputStream clonedInputStream = new ByteArrayInputStream(bytes);
                 final BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(bytes));
@@ -196,7 +195,7 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
         final var event = new BulkImportEvent(this, workbook, fileDetail.getFileName(), fileType, importDocument, locale, dateFormat,
                 ThreadLocalContextUtil.getContext(), this.securityContext.authenticatedUser().getId());
 
-        applicationContext.publishEvent(event);
+        eventPublisher.publishEvent(event);
 
         return importDocument.getId();
     }

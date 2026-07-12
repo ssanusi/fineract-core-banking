@@ -64,6 +64,7 @@ public class LoanReAgingStepDef extends AbstractStepDef {
 
     private final EventAssertion eventAssertion;
     private final FineractFeignClient fineractClient;
+    private final LoanRequestFactory loanRequestFactory;
 
     @When("Admin creates a Loan re-aging transaction with the following data:")
     public void createReAgingTransaction(DataTable table) throws IOException {
@@ -71,13 +72,13 @@ public class LoanReAgingStepDef extends AbstractStepDef {
         long loanId = loanResponse.getLoanId();
 
         PostLoansLoanIdTransactionsRequest reAgingRequest = setReAgeingRequestProperties(//
-                LoanRequestFactory.defaultReAgingRequest(), //
+                loanRequestFactory.defaultReAgingRequest(), //
                 table.row(0), //
                 table.row(1) //
         );
 
         PostLoansLoanIdTransactionsResponse response = ok(
-                () -> fineractClient.loanTransactions().executeLoanTransaction(loanId, reAgingRequest, Map.of("command", "reAge")));
+                () -> fineractClient.loanTransactions().handleCommandsLoanTransaction(loanId, reAgingRequest, Map.of("command", "reAge")));
         testContext().set(TestContextKey.LOAN_REAGING_RESPONSE, response);
     }
 
@@ -87,13 +88,13 @@ public class LoanReAgingStepDef extends AbstractStepDef {
         String loanExternalId = loanResponse.getResourceExternalId();
 
         PostLoansLoanIdTransactionsRequest reAgingRequest = setReAgeingRequestProperties(//
-                LoanRequestFactory.defaultReAgingRequest(), //
+                loanRequestFactory.defaultReAgingRequest(), //
                 table.row(0), //
                 table.row(1) //
         );
 
         PostLoansLoanIdTransactionsResponse response = ok(() -> fineractClient.loanTransactions()
-                .executeLoanTransactionByLoanExternalId(loanExternalId, reAgingRequest, Map.of("command", "reAge")));
+                .handleCommandsLoanTransactionByLoanExternalId(loanExternalId, reAgingRequest, Map.of("command", "reAge")));
         testContext().set(TestContextKey.LOAN_REAGING_RESPONSE, response);
     }
 
@@ -102,7 +103,7 @@ public class LoanReAgingStepDef extends AbstractStepDef {
         PostLoansResponse loanResponse = testContext().get(TestContextKey.LOAN_CREATE_RESPONSE);
         long loanId = loanResponse.getLoanId();
 
-        PostLoansLoanIdTransactionsResponse response = ok(() -> fineractClient.loanTransactions().executeLoanTransaction(loanId,
+        PostLoansLoanIdTransactionsResponse response = ok(() -> fineractClient.loanTransactions().handleCommandsLoanTransaction(loanId,
                 new PostLoansLoanIdTransactionsRequest(), Map.of("command", "undoReAge")));
         testContext().set(TestContextKey.LOAN_REAGING_UNDO_RESPONSE, response);
     }
@@ -160,7 +161,7 @@ public class LoanReAgingStepDef extends AbstractStepDef {
         long loanId = loanResponse.getLoanId();
 
         Map<String, Object> queryParams = resolveReAgingQueryParams(table);
-        LoanScheduleData response = ok(() -> fineractClient.loanTransactions().previewReAgeSchedule(loanId, queryParams));
+        LoanScheduleData response = ok(() -> fineractClient.loanTransactions().previewReAgeLoanSchedule(loanId, queryParams));
         testContext().set(TestContextKey.LOAN_REAGING_PREVIEW_RESPONSE, response);
 
         log.info("Re-aging preview created for loan ID: {} with parameters: {}", loanId, queryParams);
@@ -172,7 +173,7 @@ public class LoanReAgingStepDef extends AbstractStepDef {
 
         Map<String, Object> queryParams = resolveReAgingQueryParams(table);
         LoanScheduleData result = ok(
-                () -> fineractClient.loanTransactions().previewReAgeScheduleByLoanExternalId(loanExternalId, queryParams));
+                () -> fineractClient.loanTransactions().previewReAgeLoanScheduleByLoanExternalId(loanExternalId, queryParams));
         log.info("Re-aging preview is requested to be created with loan external ID: {} with parameters: {}", loanExternalId, queryParams);
         return result;
     }
@@ -192,7 +193,7 @@ public class LoanReAgingStepDef extends AbstractStepDef {
 
         Map<String, Object> queryParams = resolveReAgingQueryParams(table);
         CallFailedRuntimeException exception = fail(
-                () -> fineractClient.loanTransactions().previewReAgeScheduleByLoanExternalId(loanExternalId, queryParams));
+                () -> fineractClient.loanTransactions().previewReAgeLoanScheduleByLoanExternalId(loanExternalId, queryParams));
 
         assertThat(exception.getStatus()).as(ErrorMessageHelper.dateFailureErrorCodeMsg()).isEqualTo(403);
         assertThat(exception.getDeveloperMessage()).contains(ErrorMessageHelper.reAgeChargedOffLoanFailure());
@@ -206,7 +207,7 @@ public class LoanReAgingStepDef extends AbstractStepDef {
         Map<String, Object> queryParams = resolveReAgingQueryParams(table);
 
         CallFailedRuntimeException exception = fail(
-                () -> fineractClient.loanTransactions().previewReAgeScheduleByLoanExternalId(loanExternalId, queryParams));
+                () -> fineractClient.loanTransactions().previewReAgeLoanScheduleByLoanExternalId(loanExternalId, queryParams));
 
         assertThat(exception.getStatus()).as(ErrorMessageHelper.dateFailureErrorCodeMsg()).isEqualTo(403);
         assertThat(exception.getDeveloperMessage()).contains(ErrorMessageHelper.reAgeContractTerminatedLoanFailure());
@@ -219,7 +220,7 @@ public class LoanReAgingStepDef extends AbstractStepDef {
 
         Map<String, Object> queryParams = resolveReAgingQueryParams(table);
         CallFailedRuntimeException exception = fail(
-                () -> fineractClient.loanTransactions().previewReAgeScheduleByLoanExternalId(loanExternalId, queryParams));
+                () -> fineractClient.loanTransactions().previewReAgeLoanScheduleByLoanExternalId(loanExternalId, queryParams));
 
         assertThat(exception.getStatus()).as(ErrorMessageHelper.dateFailureErrorCodeMsg()).isEqualTo(403);
         assertThat(exception.getDeveloperMessage()).contains(ErrorMessageHelper.reAgeClosedLoanFailure());
@@ -387,13 +388,13 @@ public class LoanReAgingStepDef extends AbstractStepDef {
         String loanExternalId = loanResponse.getResourceExternalId();
 
         PostLoansLoanIdTransactionsRequest reAgingRequest = setReAgeingRequestProperties(//
-                LoanRequestFactory.defaultReAgingRequest(), //
+                loanRequestFactory.defaultReAgingRequest(), //
                 table.row(0), //
                 table.row(1) //
         );
 
         CallFailedRuntimeException response = fail(() -> fineractClient.loanTransactions()
-                .executeLoanTransactionByLoanExternalId(loanExternalId, reAgingRequest, Map.of("command", "reAge")));
+                .handleCommandsLoanTransactionByLoanExternalId(loanExternalId, reAgingRequest, Map.of("command", "reAge")));
         assertThat(response.getStatus()).isEqualTo(errorCode);
     }
 
@@ -403,12 +404,13 @@ public class LoanReAgingStepDef extends AbstractStepDef {
         final long loanId = loanResponse.getLoanId();
 
         PostLoansLoanIdTransactionsRequest reAgingRequest = setReAgeingRequestProperties(//
-                LoanRequestFactory.defaultReAgingRequest(), //
+                loanRequestFactory.defaultReAgingRequest(), //
                 table.row(0), //
                 table.row(1) //
         );
 
-        return fail(() -> fineractClient.loanTransactions().executeLoanTransaction(loanId, reAgingRequest, Map.of("command", "reAge")));
+        return fail(
+                () -> fineractClient.loanTransactions().handleCommandsLoanTransaction(loanId, reAgingRequest, Map.of("command", "reAge")));
     }
 
     public void checkCreateLoanReAgeFailure(DataTable table, String errorMessage) {

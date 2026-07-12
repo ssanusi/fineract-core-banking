@@ -18,8 +18,6 @@
  */
 package org.apache.fineract.cob.tasklet;
 
-import static org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW;
-
 import com.google.common.collect.Lists;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
@@ -30,7 +28,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.cob.converter.COBParameterConverter;
 import org.apache.fineract.cob.data.COBParameter;
-import org.apache.fineract.cob.domain.AccountLock;
 import org.apache.fineract.cob.domain.LockOwner;
 import org.apache.fineract.cob.domain.LockingService;
 import org.apache.fineract.cob.exceptions.LockCannotBeAppliedException;
@@ -49,13 +46,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @RequiredArgsConstructor
-public abstract class ApplyCommonLockTasklet<T extends AccountLock> implements Tasklet {
+public abstract class ApplyCommonLockTasklet implements Tasklet {
 
     private static final long NUMBER_OF_RETRIES = 3;
+    private static final String APPLY_LOCK_ATTEMPTS = "apply-lock-attempts";
+
     private final FineractProperties fineractProperties;
-    private final LockingService<T> loanLockingService;
+    private final LockingService loanLockingService;
     private final RetrieveIdService retrieveIdService;
-    private final TransactionTemplate transactionTemplate;
+    private final TransactionTemplate requiresNewTransactionJdbcTemplate;
 
     public abstract String getCOBParameter();
 
@@ -66,7 +65,6 @@ public abstract class ApplyCommonLockTasklet<T extends AccountLock> implements T
     public RepeatStatus execute(@NonNull StepContribution contribution, @NonNull ChunkContext chunkContext)
             throws LockCannotBeAppliedException {
         ExecutionContext executionContext = contribution.getStepExecution().getExecutionContext();
-        long numberOfExecutions = contribution.getStepExecution().getCommitCount();
         COBParameter loanCOBParameter = COBParameterConverter.convert(executionContext.get(getCOBParameter()));
         boolean isCatchUp = CatchUpFlagResolver.resolve(contribution.getStepExecution());
         List<Long> loanIds;
@@ -79,17 +77,17 @@ public abstract class ApplyCommonLockTasklet<T extends AccountLock> implements T
                     retrieveIdService.retrieveAllNonClosedLoansByLastClosedBusinessDateAndMinAndMaxLoanId(loanCOBParameter, isCatchUp));
         }
         List<List<Long>> loanIdPartitions = Lists.partition(loanIds, getInClauseParameterSizeLimit());
-        List<T> accountLocks = new ArrayList<>();
-        loanIdPartitions.forEach(loanIdPartition -> accountLocks.addAll(loanLockingService.findAllByLoanIdIn(loanIdPartition)));
+        List<Long> alreadyLockedIds = new ArrayList<>();
+        loanIdPartitions.forEach(partition -> alreadyLockedIds.addAll(loanLockingService.findLockIdsByLoanIdIn(partition)));
 
         List<Long> toBeProcessedLoanIds = new ArrayList<>(loanIds);
-        List<Long> alreadyLockedAccountIds = accountLocks.stream().map(AccountLock::getId).toList();
-
-        toBeProcessedLoanIds.removeAll(alreadyLockedAccountIds);
+        toBeProcessedLoanIds.removeAll(alreadyLockedIds);
         try {
             applyLocks(toBeProcessedLoanIds);
         } catch (Exception e) {
-            if (numberOfExecutions > NUMBER_OF_RETRIES) {
+            long numberOfAttempts = executionContext.getLong(getApplyLockAttemptsKey(), 0) + 1;
+            executionContext.putLong(getApplyLockAttemptsKey(), numberOfAttempts);
+            if (numberOfAttempts > NUMBER_OF_RETRIES) {
                 String message = "There was an error applying lock to loan accounts.";
                 log.error("{}", message, e);
                 throw new LockCannotBeAppliedException(message, e);
@@ -98,12 +96,12 @@ public abstract class ApplyCommonLockTasklet<T extends AccountLock> implements T
             }
         }
 
+        executionContext.remove(getApplyLockAttemptsKey());
         return RepeatStatus.FINISHED;
     }
 
     private void applyLocks(List<Long> toBeProcessedLoanIds) {
-        transactionTemplate.setPropagationBehavior(PROPAGATION_REQUIRES_NEW);
-        transactionTemplate.execute(new TransactionCallbackWithoutResult() {
+        requiresNewTransactionJdbcTemplate.execute(new TransactionCallbackWithoutResult() {
 
             @Override
             protected void doInTransactionWithoutResult(@NonNull TransactionStatus status) {
@@ -115,5 +113,9 @@ public abstract class ApplyCommonLockTasklet<T extends AccountLock> implements T
 
     private int getInClauseParameterSizeLimit() {
         return fineractProperties.getQuery().getInClauseParameterSizeLimit();
+    }
+
+    private String getApplyLockAttemptsKey() {
+        return getCOBParameter() + "." + APPLY_LOCK_ATTEMPTS;
     }
 }

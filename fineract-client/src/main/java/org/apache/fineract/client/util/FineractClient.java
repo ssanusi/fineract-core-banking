@@ -86,6 +86,7 @@ import org.apache.fineract.client.services.InlineJobApi;
 import org.apache.fineract.client.services.InterestRateChartApi;
 import org.apache.fineract.client.services.InterestRateSlabAKAInterestBandsApi;
 import org.apache.fineract.client.services.InternalCobApi;
+import org.apache.fineract.client.services.InternalWorkingCapitalLoansApi;
 import org.apache.fineract.client.services.JournalEntriesApi;
 import org.apache.fineract.client.services.ListReportMailingJobHistoryApi;
 import org.apache.fineract.client.services.LoanAccountLockApi;
@@ -144,8 +145,23 @@ import org.apache.fineract.client.services.StandingInstructionsHistoryApi;
 import org.apache.fineract.client.services.TaxComponentsApi;
 import org.apache.fineract.client.services.TaxGroupApi;
 import org.apache.fineract.client.services.TellerCashManagementApi;
-import org.apache.fineract.client.services.UserGeneratedDocumentsApi;
+import org.apache.fineract.client.services.TemplatesApi;
 import org.apache.fineract.client.services.UsersApi;
+import org.apache.fineract.client.services.WorkingCapitalBreachApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanAccountLockApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanBreachActionsApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanBreachScheduleApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanChargesApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanCobCatchUpApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanDelinquencyActionsApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanDelinquencyRangeScheduleApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanInternalCobApiApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanNearBreachActionsApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanOriginatorsApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanProductsApi;
+import org.apache.fineract.client.services.WorkingCapitalLoanTransactionsApi;
+import org.apache.fineract.client.services.WorkingCapitalLoansApi;
+import org.apache.fineract.client.services.WorkingCapitalNearBreachApi;
 import org.apache.fineract.client.services.WorkingDaysApi;
 import org.apache.fineract.client.util.JSON.GsonCustomConverterFactory;
 import org.slf4j.Logger;
@@ -275,7 +291,7 @@ public final class FineractClient {
     public final TaxComponentsApi taxComponents;
     public final TaxGroupApi taxGroups;
     public final TellerCashManagementApi tellers;
-    public final UserGeneratedDocumentsApi templates;
+    public final TemplatesApi templates;
     public final UsersApi users;
     public final WorkingDaysApi workingDays;
     public final LoanInterestPauseApi loanInterestPauseApi;
@@ -286,6 +302,23 @@ public final class FineractClient {
     public final LoanAccountLockApi loanAccountLockApi;
     public final InlineJobApi inlineJobApi;
     public final LoanBuyDownFeesApi loanBuyDownFeesApi;
+
+    public final WorkingCapitalLoanProductsApi workingCapitalLoanProducts;
+    public final WorkingCapitalLoanAccountLockApi workingCapitalLoanAccountLock;
+    public final WorkingCapitalLoanCobCatchUpApi workingCapitalLoanCobCatchUpApi;
+    public final WorkingCapitalLoanDelinquencyActionsApi workingCapitalLoanDelinquencyActions;
+    public final WorkingCapitalLoanDelinquencyRangeScheduleApi workingCapitalLoanDelinquencyRangeSchedule;
+    public final WorkingCapitalLoanBreachScheduleApi workingCapitalLoanBreachSchedule;
+    public final WorkingCapitalLoanBreachActionsApi workingCapitalLoanBreachActions;
+    public final InternalWorkingCapitalLoansApi internalWorkingCapitalLoans;
+    public final WorkingCapitalLoansApi workingCapitalLoans;
+    public final WorkingCapitalLoanChargesApi workingCapitalLoanCharges;
+    public final WorkingCapitalLoanTransactionsApi workingCapitalLoanTransactions;
+    public final WorkingCapitalLoanInternalCobApiApi workingCapitalLoanInternalCobApi;
+    public final WorkingCapitalBreachApi workingCapitalBreaches;
+    public final WorkingCapitalNearBreachApi workingCapitalNearBreaches;
+    public final WorkingCapitalLoanNearBreachActionsApi workingCapitalLoanNearBreachActions;
+    public final WorkingCapitalLoanOriginatorsApi workingCapitalLoanOriginators;
 
     private FineractClient(OkHttpClient okHttpClient, Retrofit retrofit) {
         this.okHttpClient = okHttpClient;
@@ -396,13 +429,29 @@ public final class FineractClient {
         taxComponents = retrofit.create(TaxComponentsApi.class);
         taxGroups = retrofit.create(TaxGroupApi.class);
         tellers = retrofit.create(TellerCashManagementApi.class);
-        templates = retrofit.create(UserGeneratedDocumentsApi.class);
+        templates = retrofit.create(TemplatesApi.class);
         users = retrofit.create(UsersApi.class);
         workingDays = retrofit.create(WorkingDaysApi.class);
         loanInterestPauseApi = retrofit.create(LoanInterestPauseApi.class);
         progressiveLoanApi = retrofit.create(ProgressiveLoanApi.class);
         inlineJobApi = retrofit.create(InlineJobApi.class);
         loanBuyDownFeesApi = retrofit.create(LoanBuyDownFeesApi.class);
+        workingCapitalLoanProducts = retrofit.create(WorkingCapitalLoanProductsApi.class);
+        workingCapitalLoanAccountLock = retrofit.create(WorkingCapitalLoanAccountLockApi.class);
+        workingCapitalLoanCobCatchUpApi = retrofit.create(WorkingCapitalLoanCobCatchUpApi.class);
+        workingCapitalLoanDelinquencyActions = retrofit.create(WorkingCapitalLoanDelinquencyActionsApi.class);
+        workingCapitalLoanDelinquencyRangeSchedule = retrofit.create(WorkingCapitalLoanDelinquencyRangeScheduleApi.class);
+        workingCapitalLoanBreachSchedule = retrofit.create(WorkingCapitalLoanBreachScheduleApi.class);
+        workingCapitalLoanBreachActions = retrofit.create(WorkingCapitalLoanBreachActionsApi.class);
+        internalWorkingCapitalLoans = retrofit.create(InternalWorkingCapitalLoansApi.class);
+        workingCapitalLoans = retrofit.create(WorkingCapitalLoansApi.class);
+        workingCapitalLoanCharges = retrofit.create(WorkingCapitalLoanChargesApi.class);
+        workingCapitalLoanTransactions = retrofit.create(WorkingCapitalLoanTransactionsApi.class);
+        workingCapitalLoanInternalCobApi = retrofit.create(WorkingCapitalLoanInternalCobApiApi.class);
+        workingCapitalBreaches = retrofit.create(WorkingCapitalBreachApi.class);
+        workingCapitalNearBreaches = retrofit.create(WorkingCapitalNearBreachApi.class);
+        workingCapitalLoanNearBreachActions = retrofit.create(WorkingCapitalLoanNearBreachActionsApi.class);
+        workingCapitalLoanOriginators = retrofit.create(WorkingCapitalLoanOriginatorsApi.class);
     }
 
     public static Builder builder() {

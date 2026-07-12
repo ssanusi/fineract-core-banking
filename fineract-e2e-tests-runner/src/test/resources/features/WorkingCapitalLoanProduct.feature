@@ -1,3 +1,4 @@
+@WorkingCapital
 @WorkingCapitalLoanProductFeature
 Feature: WorkingCapitalLoanProduct
 
@@ -60,7 +61,7 @@ Feature: WorkingCapitalLoanProduct
 
   @TestRailId:C70213
   Scenario Outline: Verify Working capital Loan Product create with invalid data shall outcome with error - validation check with zero values - UC6
-    Then Admin failed to create a new Working Capital Loan Product field "<wcp_field_name_zero_value>" with zero incorrect value
+    Then Admin failed to create a new Working Capital Loan Product with field "<wcp_field_name_zero_value>" with zero incorrect value
 
     Examples:
       | wcp_field_name_zero_value |
@@ -86,7 +87,7 @@ Feature: WorkingCapitalLoanProduct
 
   @TestRailId:C70215
   Scenario Outline: Verify Working capital Loan Product create with invalid data shall outcome with error - validation check with diff values - U8
-    Then Admin failed to create a new Working Capital Loan Product field "<wcp_field_name>" with invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
+    Then Admin failed to create a new Working Capital Loan Product with field "<wcp_field_name>" invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
 
     Examples:
       | wcp_field_name           | wcp_invalid_field_value  | wcp_error_message                                                                          |
@@ -191,7 +192,7 @@ Feature: WorkingCapitalLoanProduct
 
   @TestRailId:C72384
   Scenario Outline: Verify WC Loan Product create with invalid delinquency grace data
-    Then Admin failed to create a new Working Capital Loan Product field "<wcp_field_name>" with invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
+    Then Admin failed to create a new Working Capital Loan Product with field "<wcp_field_name>" invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
     Examples:
       | wcp_field_name         | wcp_invalid_field_value | wcp_error_message                                                   |
       | delinquencyGraceDays   | "-1"                    | "The parameter `delinquencyGraceDays` must be zero or greater."     |
@@ -215,7 +216,7 @@ Feature: WorkingCapitalLoanProduct
 
   @TestRailId:C74470
   Scenario Outline: Verify WC Loan Product create/update with invalid breachId
-    Then Admin failed to create a new Working Capital Loan Product field "<wcp_field_name>" with invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
+    Then Admin failed to create a new Working Capital Loan Product with field "<wcp_field_name>" invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
     When Admin creates a new Working Capital Loan Product
     Then Admin failed to update a new Working Capital Loan Product field "<wcp_field_name>" with invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
     Then Admin deletes a Working Capital Loan Product
@@ -225,9 +226,9 @@ Feature: WorkingCapitalLoanProduct
       | breachId       | "0"                     | "The parameter `breachId` must be greater than 0." |
 
   @TestRailId:C74445
-  Scenario: Verify Working capital Loan Product create with Cash based accounting
-    When Admin creates a new Working Capital Loan Product with accounting rule "CASH_BASED"
-    Then Admin verifies Working Capital Loan Product has accounting rule "CASH_BASED"
+  Scenario: Verify Working capital Loan Product create with Accrual with deferred revenue amortization accounting
+    When Admin creates a new Working Capital Loan Product with accounting rule "ACC_DEF_REV_AM"
+    Then Admin verifies Working Capital Loan Product has accounting rule "ACC_DEF_REV_AM"
     Then Admin deletes Working Capital Loan Product and verifies GL account mappings are cleaned up
 
   @TestRailId:C74446
@@ -237,28 +238,28 @@ Feature: WorkingCapitalLoanProduct
     Then Admin deletes a Working Capital Loan Product
 
   @TestRailId:C74447
-  Scenario: Verify Working capital Loan Product create with Cash based accounting fails when required GL accounts are missing
-    Then Admin failed to create a new Working Capital Loan Product with Cash based accounting and missing required GL accounts
+  Scenario: Verify Working capital Loan Product create with Accrual with deferred revenue amortization accounting fails when required GL accounts are missing
+    Then Admin failed to create a new Working Capital Loan Product with Accrual with deferred revenue amortization accounting and missing required GL accounts
 
   @TestRailId:C74448
-  Scenario: Verify Working capital Loan Product update accounting rule from None to Cash based
+  Scenario: Verify Working capital Loan Product update accounting rule from None to Accrual with deferred revenue amortization
     When Admin creates a new Working Capital Loan Product with accounting rule "NONE"
-    When Admin updates Working Capital Loan Product accounting rule from None to Cash based
-    Then Admin verifies Working Capital Loan Product has accounting rule "CASH_BASED"
+    When Admin updates Working Capital Loan Product accounting rule from None to Accrual with deferred revenue amortization
+    Then Admin verifies Working Capital Loan Product has accounting rule "ACC_DEF_REV_AM"
     Then Admin deletes Working Capital Loan Product and verifies GL account mappings are cleaned up
 
   @TestRailId:C74449
-  Scenario: Verify Working capital Loan Product update accounting rule from Cash based to None
-    When Admin creates a new Working Capital Loan Product with accounting rule "CASH_BASED"
-    When Admin updates Working Capital Loan Product accounting rule from Cash based to None
+  Scenario: Verify Working capital Loan Product update accounting rule from Accrual with deferred revenue amortization to None
+    When Admin creates a new Working Capital Loan Product with accounting rule "ACC_DEF_REV_AM"
+    When Admin updates Working Capital Loan Product accounting rule from Accrual with deferred revenue amortization to None
     Then Admin verifies Working Capital Loan Product has accounting rule "NONE"
     Then Admin deletes a Working Capital Loan Product
 
   @TestRailId:C74450
-  Scenario: Verify Working capital Loan Product update GL account mappings on existing Cash based product
-    When Admin creates a new Working Capital Loan Product with accounting rule "CASH_BASED"
-    When Admin updates GL account mappings on existing Cash based Working Capital Loan Product
-    Then Admin verifies Working Capital Loan Product has accounting rule "CASH_BASED"
+  Scenario: Verify Working capital Loan Product update GL account mappings on existing Accrual with deferred revenue amortization product
+    When Admin creates a new Working Capital Loan Product with accounting rule "ACC_DEF_REV_AM"
+    When Admin updates GL account mappings on existing Accrual with deferred revenue amortization Working Capital Loan Product
+    Then Admin verifies Working Capital Loan Product has accounting rule "ACC_DEF_REV_AM"
     Then Admin deletes a Working Capital Loan Product
 
   @TestRailId:C74451
@@ -266,8 +267,8 @@ Feature: WorkingCapitalLoanProduct
     Then Admin verifies Working Capital Loan Product template has accounting options
 
   @TestRailId:C74452
-  Scenario: Verify Working capital Loan Product create with Cash based accounting and verify each GL account mapping value
-    When Admin creates a new Working Capital Loan Product with Cash based accounting for GL mapping verification
+  Scenario: Verify Working capital Loan Product create with Accrual with deferred revenue amortization accounting and verify each GL account mapping value
+    When Admin creates a new Working Capital Loan Product with Accrual with deferred revenue amortization accounting for GL mapping verification
     Then Admin verifies Working Capital Loan Product GL account mapping values match the request
     Then Admin deletes Working Capital Loan Product and verifies GL account mappings are cleaned up
 
@@ -279,33 +280,33 @@ Feature: WorkingCapitalLoanProduct
 
   @TestRailId:C74455
   Scenario: Verify Working capital Loan Product create with non-existent GL account ID fails
-    Then Admin failed to create a Working Capital Loan Product with Cash based accounting and non-existent GL account ID with status 404
+    Then Admin failed to create a Working Capital Loan Product with Accrual with deferred revenue amortization accounting and non-existent GL account ID with status 404
 
   @TestRailId:C74456
-  Scenario: Verify Working capital Loan Product update to Cash based without required GL accounts fails
+  Scenario: Verify Working capital Loan Product update to Accrual with deferred revenue amortization without required GL accounts fails
     When Admin creates a new Working Capital Loan Product with accounting rule "NONE"
-    Then Admin failed to update Working Capital Loan Product to Cash based without required GL accounts with status 400
+    Then Admin failed to update Working Capital Loan Product to Accrual with deferred revenue amortization without required GL accounts with status 400
     Then Admin deletes a Working Capital Loan Product
 
   @TestRailId:C74457
-  Scenario: Verify Working capital Loan Product update single GL account on Cash based product and verify changed value
-    When Admin creates a new Working Capital Loan Product with accounting rule "CASH_BASED"
-    When Admin updates writeOff GL account on Cash based Working Capital Loan Product
+  Scenario: Verify Working capital Loan Product update single GL account on Accrual with deferred revenue amortization product and verify changed value
+    When Admin creates a new Working Capital Loan Product with accounting rule "ACC_DEF_REV_AM"
+    When Admin updates writeOff GL account on Accrual with deferred revenue amortization Working Capital Loan Product
     Then Admin verifies Working Capital Loan Product writeOff GL account was updated
     Then Admin deletes a Working Capital Loan Product
 
   @TestRailId:C74458
-  Scenario: Verify Working capital Loan Product update from Cash based to None removes all GL account mappings
-    When Admin creates a new Working Capital Loan Product with Cash based accounting for GL mapping verification
+  Scenario: Verify Working capital Loan Product update from Accrual with deferred revenue amortization to None removes all GL account mappings
+    When Admin creates a new Working Capital Loan Product with Accrual with deferred revenue amortization accounting for GL mapping verification
     Then Admin verifies Working Capital Loan Product GL account mapping values match the request
-    When Admin updates Working Capital Loan Product accounting rule from Cash based to None
+    When Admin updates Working Capital Loan Product accounting rule from Accrual with deferred revenue amortization to None
     Then Admin verifies Working Capital Loan Product has no accounting mappings
     Then Admin deletes a Working Capital Loan Product
 
   @TestRailId:C74459
   Scenario: Verify Working capital Loan Product list returns accounting rule field
-    When Admin creates a new Working Capital Loan Product with accounting rule "CASH_BASED"
-    Then Admin verifies Working Capital Loan Product list contains the product with accounting rule "CASH_BASED"
+    When Admin creates a new Working Capital Loan Product with accounting rule "ACC_DEF_REV_AM"
+    Then Admin verifies Working Capital Loan Product list contains the product with accounting rule "ACC_DEF_REV_AM"
     Then Admin deletes a Working Capital Loan Product
 
   @TestRailId:C74460
@@ -313,5 +314,182 @@ Feature: WorkingCapitalLoanProduct
     Then Admin failed to create a Working Capital Loan Product with wrong GL account type for loanPortfolio with status 403
 
   @TestRailId:C74461
-  Scenario: Verify Working capital Loan Product template accounting rule options contain NONE and CASH_BASED
-    Then Admin verifies Working Capital Loan Product template has NONE and CASH_BASED accounting rule options
+  Scenario: Verify Working capital Loan Product template accounting rule options contain NONE and ACC_DEF_REV_AM
+    Then Admin verifies Working Capital Loan Product template has NONE and ACC_DEF_REV_AM accounting rule options
+
+  @TestRailId:C76707
+  Scenario: Verify WC Loan Product create with breach and update with near breach (breach -> all) - UC1
+    When Admin creates a new Working Capital Loan Product with breachId
+    When Admin updates a Working Capital Loan Product with near breach
+    Then Admin deletes a Working Capital Loan Product
+    When Admin deletes WC Breach With Values
+    When Admin deletes WC Near Breach With Values
+
+  @TestRailId:C76708
+  Scenario: Verify WC Loan Product update with breach and near breach valid data (none -> all) - UC2
+    When Admin creates a new Working Capital Loan Product
+    When Admin updates a Working Capital Loan Product with breach and near breach
+    Then Admin deletes a Working Capital Loan Product
+    When Admin deletes WC Breach With Values
+    When Admin deletes WC Near Breach With Values
+
+  @TestRailId:C76709
+  Scenario Outline: Verify WC Loan Product create with breach and near breach frequency valid data - UC3
+    When Admin creates a new WCLP with breach <breachFrequency> "<breachFrequencyType>" frequency and near breach <nearBreachFrequency> "<nearBreachFrequencyType>" frequency
+    Then Admin deletes a Working Capital Loan Product
+    When Admin deletes WC Breach With Values
+    When Admin deletes WC Near Breach With Values
+
+    Examples:
+      | breachFrequency | breachFrequencyType | nearBreachFrequency | nearBreachFrequencyType |
+      | 2               | MONTHS              | 1                   | MONTHS                  |
+      | 20              | DAYS                | 12                  | DAYS                    |
+      | 3               | YEARS               | 2                   | YEARS                   |
+      | 2               | MONTHS              | 50                  | DAYS                    |
+      | 20              | MONTHS              | 1                   | YEARS                   |
+
+  @TestRailId:C76710
+  Scenario Outline: Verify WC Loan Product update with breach and near breach frequency valid data - UC4
+    When Admin creates a new Working Capital Loan Product
+    When Admin updates a WCLP with breach <breachFrequency> "<breachFrequencyType>" frequency and near breach <nearBreachFrequency> "<nearBreachFrequencyType>" frequency
+    Then Admin deletes a Working Capital Loan Product
+    When Admin deletes WC Breach With Values
+    When Admin deletes WC Near Breach With Values
+
+    Examples:
+      | breachFrequency | breachFrequencyType | nearBreachFrequency | nearBreachFrequencyType |
+      | 2               | MONTHS              | 1                   | MONTHS                  |
+      | 20              | DAYS                | 12                  | DAYS                    |
+      | 3               | YEARS               | 2                   | YEARS                   |
+      | 2               | MONTHS              | 50                  | DAYS                    |
+      | 20              | MONTHS              | 1                   | YEARS                   |
+
+  @TestRailId:C76711
+  Scenario Outline: Verify WC Loan Product create failed with breach frequency lower then near breach frequency - UC5
+    When Admin failed to create WCLP with breach <breachFrequency> "<breachFrequencyType>" frequency lower then near breach <nearBreachFrequency> "<nearBreachFrequencyType>" frequency
+
+    Examples:
+      | breachFrequency | breachFrequencyType | nearBreachFrequency | nearBreachFrequencyType |
+      | 1               | MONTHS              | 3                   | MONTHS                  |
+      | 2               | MONTHS              | 2                   | MONTHS                  |
+      | 10              | DAYS                | 12                  | DAYS                    |
+      | 1               | YEARS               | 3                   | YEARS                   |
+      | 2               | MONTHS              | 70                  | DAYS                    |
+      | 10              | MONTHS              | 1                   | YEARS                   |
+
+  @TestRailId:C76712
+  Scenario Outline: Verify WC Loan Product update failed with breach frequency lower then near breach frequency - UC6
+    When Admin creates a new Working Capital Loan Product
+    When Admin failed to update WCLP with breach <breachFrequency> "<breachFrequencyType>" frequency lower then near breach <nearBreachFrequency> "<nearBreachFrequencyType>" frequency
+    Then Admin deletes a Working Capital Loan Product
+    When Admin deletes WC Breach With Values
+    When Admin deletes WC Near Breach With Values
+
+    Examples:
+      | breachFrequency | breachFrequencyType | nearBreachFrequency | nearBreachFrequencyType |
+      | 1               | MONTHS              | 3                   | MONTHS                  |
+      | 2               | MONTHS              | 2                   | MONTHS                  |
+      | 10              | DAYS                | 12                  | DAYS                    |
+      | 1               | YEARS               | 3                   | YEARS                   |
+      | 2               | MONTHS              | 70                  | DAYS                    |
+      | 10              | MONTHS              | 1                   | YEARS                   |
+
+  @TestRailId:C76713
+  Scenario: Verify WC Loan Product create failed without breach, but with near breach specified - UC7
+    Then Admin failed to create Working Capital Loan Product without breach, but with near breach specified
+    When Admin deletes WC Near Breach With Values
+
+  @TestRailId:C76714
+  Scenario: Verify WC Loan Product update failed without breach, but with near breach specified - UC8
+    When Admin creates a new Working Capital Loan Product
+    Then Admin failed to update Working Capital Loan Product without breach, but with near breach specified
+    Then Admin deletes a Working Capital Loan Product
+    When Admin deletes WC Near Breach With Values
+
+  @TestRailId:C76715
+  Scenario Outline: Verify WC Loan Product create/update failed with near breach invalid data - UC9
+    Then Admin failed to create a new Working Capital Loan Product with breach with field "<wcp_field_name>" invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
+    When Admin creates a new Working Capital Loan Product with breachId
+    Then Admin failed to update a new Working Capital Loan Product with breach with field "<wcp_field_name>" invalid data <wcp_invalid_field_value> and got an error <wcp_error_message>
+    Then Admin deletes a Working Capital Loan Product
+    When Admin deletes WC Breach With Values
+
+    Examples:
+      | wcp_field_name | wcp_invalid_field_value | wcp_error_message                                      |
+      | nearBreachId   | "0"                     | "Working Capital Near Breach with id 0 was not found." |
+
+  @TestRailId:C80962
+  Scenario: Verify WC Loan Product template exposes the 6 advanced payment allocation types
+    When Admin retrieves the Working Capital Loan Product template
+    Then Working Capital Loan Product template advancedPaymentAllocationTypes contains:
+      | DUE_PENALTY          | Due Penalty          |
+      | DUE_FEE              | Due Fee              |
+      | DUE_PRINCIPAL        | Due Principal        |
+      | IN_ADVANCE_PENALTY   | In Advance Penalty   |
+      | IN_ADVANCE_FEE       | In Advance Fee       |
+      | IN_ADVANCE_PRINCIPAL | In Advance Principal |
+
+  @TestRailId:C80963
+  Scenario: Verify WC Loan Product create persists DUE-first then IN_ADVANCE payment allocation order
+    When Admin creates a new Working Capital Loan Product with payment allocation order:
+      | DUE_PENALTY          |
+      | DUE_FEE              |
+      | DUE_PRINCIPAL        |
+      | IN_ADVANCE_PENALTY   |
+      | IN_ADVANCE_FEE       |
+      | IN_ADVANCE_PRINCIPAL |
+    Then Working Capital Loan Product payment allocation order is:
+      | DUE_PENALTY          | 1 |
+      | DUE_FEE              | 2 |
+      | DUE_PRINCIPAL        | 3 |
+      | IN_ADVANCE_PENALTY   | 4 |
+      | IN_ADVANCE_FEE       | 5 |
+      | IN_ADVANCE_PRINCIPAL | 6 |
+    Then Admin deletes a Working Capital Loan Product
+
+  @TestRailId:C80964
+  Scenario: Verify WC Loan Product create persists PRINCIPAL-first interleaved payment allocation order
+    When Admin creates a new Working Capital Loan Product with payment allocation order:
+      | DUE_PRINCIPAL        |
+      | IN_ADVANCE_PRINCIPAL |
+      | DUE_FEE              |
+      | IN_ADVANCE_FEE       |
+      | DUE_PENALTY          |
+      | IN_ADVANCE_PENALTY   |
+    Then Working Capital Loan Product payment allocation order is:
+      | DUE_PRINCIPAL        | 1 |
+      | IN_ADVANCE_PRINCIPAL | 2 |
+      | DUE_FEE              | 3 |
+      | IN_ADVANCE_FEE       | 4 |
+      | DUE_PENALTY          | 5 |
+      | IN_ADVANCE_PENALTY   | 6 |
+    Then Admin deletes a Working Capital Loan Product
+
+  @TestRailId:C80965
+  Scenario: Verify WC Loan Product update changes the payment allocation order
+    When Admin creates a new Working Capital Loan Product with payment allocation order:
+      | DUE_PENALTY          |
+      | DUE_FEE              |
+      | DUE_PRINCIPAL        |
+      | IN_ADVANCE_PENALTY   |
+      | IN_ADVANCE_FEE       |
+      | IN_ADVANCE_PRINCIPAL |
+    When Admin updates Working Capital Loan Product payment allocation order:
+      | IN_ADVANCE_PRINCIPAL |
+      | IN_ADVANCE_FEE       |
+      | IN_ADVANCE_PENALTY   |
+      | DUE_PRINCIPAL        |
+      | DUE_FEE              |
+      | DUE_PENALTY          |
+    Then Working Capital Loan Product payment allocation order is:
+      | IN_ADVANCE_PRINCIPAL | 1 |
+      | IN_ADVANCE_FEE       | 2 |
+      | IN_ADVANCE_PENALTY   | 3 |
+      | DUE_PRINCIPAL        | 4 |
+      | DUE_FEE              | 5 |
+      | DUE_PENALTY          | 6 |
+    Then Admin deletes a Working Capital Loan Product
+
+  @TestRailId:C80966
+  Scenario: Verify WC Loan Product create fails when payment allocation rules contain duplicates
+    Then Admin failed to create a new Working Capital Loan Product with duplicate payment allocation rules

@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.fineract.infrastructure.core.domain.AbstractAuditableWithUTCDateTimeCustom;
+import org.apache.fineract.infrastructure.core.service.MathUtil;
 
 @Entity
 @Table(name = "m_wc_loan_transaction_allocation", uniqueConstraints = {
@@ -66,6 +67,46 @@ public class WorkingCapitalLoanTransactionAllocation extends AbstractAuditableWi
         allocation.principalPortion = principalAmount != null ? principalAmount : BigDecimal.ZERO;
         allocation.feeChargesPortion = BigDecimal.ZERO;
         allocation.penaltyChargesPortion = BigDecimal.ZERO;
+        return allocation;
+    }
+
+    public static WorkingCapitalLoanTransactionAllocation forPortions(final WorkingCapitalLoanTransaction transaction,
+            final BigDecimal principalAmount, final BigDecimal feeAmount, final BigDecimal penaltyAmount) {
+        final WorkingCapitalLoanTransactionAllocation allocation = new WorkingCapitalLoanTransactionAllocation();
+        allocation.wcLoanTransaction = transaction;
+        allocation.principalPortion = MathUtil.nullToZero(principalAmount);
+        allocation.feeChargesPortion = MathUtil.nullToZero(feeAmount);
+        allocation.penaltyChargesPortion = MathUtil.nullToZero(penaltyAmount);
+        return allocation;
+    }
+
+    public static WorkingCapitalLoanTransactionAllocation forDisbursementDiscount(final WorkingCapitalLoanTransaction transaction,
+            final BigDecimal principalAmount) {
+        final WorkingCapitalLoanTransactionAllocation allocation = new WorkingCapitalLoanTransactionAllocation();
+        allocation.wcLoanTransaction = transaction;
+        allocation.principalPortion = MathUtil.nullToZero(principalAmount);
+        allocation.feeChargesPortion = BigDecimal.ZERO;
+        allocation.penaltyChargesPortion = BigDecimal.ZERO;
+        return allocation;
+    }
+
+    public static WorkingCapitalLoanTransactionAllocation forDiscountFeeAdjustment(final WorkingCapitalLoanTransaction transaction,
+            final BigDecimal principalAmount) {
+        final WorkingCapitalLoanTransactionAllocation allocation = new WorkingCapitalLoanTransactionAllocation();
+        allocation.wcLoanTransaction = transaction;
+        allocation.principalPortion = MathUtil.nullToZero(principalAmount);
+        allocation.feeChargesPortion = BigDecimal.ZERO;
+        allocation.penaltyChargesPortion = BigDecimal.ZERO;
+        return allocation;
+    }
+
+    public static WorkingCapitalLoanTransactionAllocation forChargeAdjustment(final WorkingCapitalLoanTransaction transaction,
+            final BigDecimal amount, final boolean isPenalty) {
+        final WorkingCapitalLoanTransactionAllocation allocation = new WorkingCapitalLoanTransactionAllocation();
+        allocation.wcLoanTransaction = transaction;
+        allocation.principalPortion = BigDecimal.ZERO;
+        allocation.feeChargesPortion = isPenalty ? BigDecimal.ZERO : MathUtil.nullToZero(amount);
+        allocation.penaltyChargesPortion = isPenalty ? MathUtil.nullToZero(amount) : BigDecimal.ZERO;
         return allocation;
     }
 }

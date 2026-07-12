@@ -36,6 +36,8 @@ public final class CommandWrapperConstants {
     public static final String ACTION_APPROVALUNDO = "APPROVALUNDO";
     public static final String ACTION_DISBURSE = "DISBURSE";
     public static final String ACTION_DISBURSALUNDO = "DISBURSALUNDO";
+    public static final String ACTION_DISCOUNTFEE = "DISCOUNTFEE";
+    public static final String ACTION_DISCOUNTFEEADJUSTMENT = "DISCOUNTFEEADJUSTMENT";
     public static final String ACTION_ACTIVATE = "ACTIVATE";
     public static final String ACTION_CLOSE = "CLOSE";
     public static final String ACTION_WITHDRAW = "WITHDRAW";
@@ -178,14 +180,15 @@ public final class CommandWrapperConstants {
     public static final String ENTITY_CODE = "CODE";
     public static final String ENTITY_HOOK = "HOOK";
     public static final String ENTITY_CHARGE = "CHARGE";
-    public static final String ENTITY_COLLATERAL_PRODUCT = "COLLATERAL_PRODUCT";
     public static final String ENTITY_LOANPRODUCT = "LOANPRODUCT";
     public static final String ENTITY_WORKINGCAPITALLOANPRODUCT = "WORKINGCAPITALLOANPRODUCT";
     public static final String ENTITY_WORKINGCAPITALLOAN = "WORKINGCAPITALLOAN";
+    public static final String ENTITY_WORKINGCAPITALLOANTRANSACTION = "ENTITY_WORKINGCAPITALLOANTRANSACTION";
     public static final String ENTITY_CLIENTIDENTIFIER = "CLIENTIDENTIFIER";
     public static final String ENTITY_CLIENT = "CLIENT";
     public static final String ENTITY_DATATABLE = "DATATABLE";
     public static final String ENTITY_LOANCHARGE = "LOANCHARGE";
+    public static final String ENTITY_WORKINGCAPITALLOANCHARGE = "WORKINGCAPITALLOANCHARGE";
     public static final String ENTITY_REPAYMENT_WITH_POSTDATEDCHECKS = "REPAYMENT_WITH_POSTDATEDCHECKS";
     public static final String ENTITY_DISBURSEMENTDETAIL = "DISBURSEMENTDETAIL";
     public static final String ENTITY_GLIMLOAN = "GLIMLOAN";
@@ -249,6 +252,7 @@ public final class CommandWrapperConstants {
     public static final String ENTITY_DELINQUENCY_ACTION = "DELINQUENCY_ACTION";
     public static final String ENTITY_LOAN_AVAILABLE_DISBURSEMENT_AMOUNT = "LOAN_AVAILABLE_DISBURSEMENT_AMOUNT";
     public static final String ENTITY_LOAN_ORIGINATOR = "LOAN_ORIGINATOR";
+    public static final String ENTITY_WORKING_CAPITAL_LOAN_ORIGINATOR = "WORKING_CAPITAL_LOAN_ORIGINATOR";
     public static final String ENTITY_WORKINGDAYS = "WORKINGDAYS";
     public static final String ENTITY_SHAREPRODUCT = "SHAREPRODUCT";
     public static final String ENTITY_INTEREST_PAUSE = "INTEREST_PAUSE";
