@@ -99,7 +99,6 @@ import org.apache.fineract.infrastructure.event.external.data.ExternalEventRespo
 import org.apache.fineract.integrationtests.client.IntegrationTest;
 import org.apache.fineract.integrationtests.common.BatchHelper;
 import org.apache.fineract.integrationtests.common.ClientHelper;
-import org.apache.fineract.integrationtests.common.SchedulerJobHelper;
 import org.apache.fineract.integrationtests.common.Utils;
 import org.apache.fineract.integrationtests.common.accounting.Account;
 import org.apache.fineract.integrationtests.common.accounting.AccountHelper;
@@ -173,7 +172,6 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
     protected final LoanTransactionHelper loanTransactionHelper = new LoanTransactionHelper(requestSpec, responseSpec);
     protected JournalEntryHelper journalEntryHelper = new JournalEntryHelper(requestSpec, responseSpec);
     protected ClientHelper clientHelper = new ClientHelper(requestSpec, responseSpec);
-    protected SchedulerJobHelper schedulerJobHelper = new SchedulerJobHelper(requestSpec);
     protected final InlineLoanCOBHelper inlineLoanCOBHelper = new InlineLoanCOBHelper(requestSpec, responseSpec);
     protected DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(DATETIME_PATTERN);
     protected final CodeHelper codeHelper = new CodeHelper();
@@ -290,7 +288,7 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
 
     protected Long verifyPrepayAmountByRepayment(Long loanId, String date) {
         GetLoansLoanIdTransactionsTemplateResponse prepayAmount = getPrepayAmount(loanId, date);
-        Double amountToPrepayLoan = prepayAmount.getAmount();
+        Double amountToPrepayLoan = prepayAmount.getAmount() != null ? prepayAmount.getAmount().doubleValue() : null;
         Long repaymentId = null;
         if (amountToPrepayLoan != null && amountToPrepayLoan > 0) {
             PostLoansLoanIdTransactionsResponse repayment = loanTransactionHelper.makeLoanRepayment(loanId, "repayment", date,

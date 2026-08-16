@@ -352,7 +352,7 @@ Feature: Working Capital Loan Undo Transaction
       | 01 January 2026 | Disbursement          | 9000.0            | 9000.0           | 0.0               | 0.0                   | false    |
       | 06 January 2026 | Repayment             | 100.0             | 0.0              | 100.0             | 0.0                   | true     |
       | 07 January 2026 | Repayment             | 9300.0            | 9000.0           | 100.0             | 0.0                   | false    |
-      | 08 January 2026 | Credit Balance Refund | 100.0             | 100.0            | 0.0               | 0.0                   | false    |
+      | 08 January 2026 | Credit Balance Refund | 100.0             | 0.0              | 0.0               | 0.0                   | false    |
     And Working Capital loan balance payload contains the following fields:
       | field                | value  |
       | principalOutstanding | 0.0    |
@@ -512,7 +512,7 @@ Feature: Working Capital Loan Undo Transaction
     Then WC loan delinquency range schedule periods have specific data:
       | periodNumber | fromDate        | toDate          | expectedAmount | paidAmount | outstandingAmount | minPaymentCriteriaMet |
       | 1            | 01 January 2026 | 30 January 2026 | 200            | 700        | 0                 | true                  |
-      | 2            | 31 January 2026 | 01 March 2026   | 200            | 200        | 0                 | true                  |
+      | 2            | 31 January 2026 | 01 March 2026   | 100            | 200        | 0                 | true                  |
     When Customer undo "1"th working capital transaction made on "30 January 2026"
     Then WC loan delinquency range schedule periods have specific data:
       | periodNumber | fromDate        | toDate          | expectedAmount | paidAmount | outstandingAmount | minPaymentCriteriaMet |

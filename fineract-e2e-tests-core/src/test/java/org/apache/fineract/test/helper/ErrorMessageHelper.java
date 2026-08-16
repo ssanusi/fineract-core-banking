@@ -1054,6 +1054,10 @@ public final class ErrorMessageHelper {
         return "The list of provided payment allocation rules must not contain any duplicates";
     }
 
+    public static String paymentAllocationRulesWithoutDefaultFailure() {
+        return "At least one DEFAULT payment allocation must be provided";
+    }
+
     public static String workingCapitalLoanProductIdentifiedDoesNotExistFailure(String identifierId) {
         return String.format("Working Capital Loan Product with identifier %s does not exist", identifierId);
     }
@@ -1147,7 +1151,7 @@ public final class ErrorMessageHelper {
     }
 
     public static String discountAdjustmentUndoNotActiveLoanFailure() {
-        return "Failed data validation due to: undo.discount.adjustment.only.allowed.for.active.loan.";
+        return "Failed data validation due to: undo.transaction.not.allowed.for.loan.status.";
     }
 
     public static String nearBreachCannotEnableWithoutBreachFailure() {
@@ -1168,5 +1172,17 @@ public final class ErrorMessageHelper {
 
     public static String periodPaymentRateOnNonActiveLoanFailure() {
         return "rate.change.not.allowed.for.non.active.loan";
+    }
+
+    public static String creditBalanceRefundBackdatedForbiddenFailure() {
+        return "Backdated credit balance refund is not allowed";
+    }
+
+    public static String workingCapitalInputValuesCauseUnableCalculateEIrFailure() {
+        return "Please check the input values - unable to calculate a valid EIR.";
+    }
+
+    public static String workingCapitalInputValuesCauseUnableCalculateEIrErrorCodeFailure() {
+        return "validation.msg.WORKINGCAPITALLOAN.principalAmount.unable.to.calculate.valid.eir";
     }
 }

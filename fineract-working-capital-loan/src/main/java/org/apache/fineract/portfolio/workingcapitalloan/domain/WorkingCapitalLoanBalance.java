@@ -27,10 +27,12 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
+import java.util.Optional;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.fineract.infrastructure.core.domain.AbstractAuditableWithUTCDateTimeCustom;
 import org.apache.fineract.infrastructure.core.service.MathUtil;
+import org.apache.fineract.portfolio.workingcapitalloanproduct.domain.WorkingCapitalLoanProductRelatedDetails;
 
 /**
  * Stores all balances of a working capital loan (one row per loan). Updated from allocations; accounting depends on
@@ -53,6 +55,10 @@ public class WorkingCapitalLoanBalance extends AbstractAuditableWithUTCDateTimeC
     @Column(name = "principal_paid", scale = 6, precision = 19, nullable = false)
     @Setter
     private BigDecimal principalPaid = BigDecimal.ZERO;
+
+    @Column(name = "principal_adjustment", scale = 6, precision = 19, nullable = false)
+    @Setter
+    private BigDecimal principalAdjustment = BigDecimal.ZERO;
 
     @Column(name = "fee", scale = 6, precision = 19, nullable = false)
     @Setter
@@ -90,6 +96,10 @@ public class WorkingCapitalLoanBalance extends AbstractAuditableWithUTCDateTimeC
     @Setter
     private BigDecimal totalDiscountFeeAdjustment = BigDecimal.ZERO;
 
+    @Column(name = "breach_pastdue_amount", scale = 6, precision = 19, nullable = false)
+    @Setter
+    private BigDecimal breachPastDueAmount = BigDecimal.ZERO;
+
     @Version
     @Column(name = "version")
     private Integer version;
@@ -102,8 +112,20 @@ public class WorkingCapitalLoanBalance extends AbstractAuditableWithUTCDateTimeC
         return balance;
     }
 
+    public void applyDisbursement(final BigDecimal disbursedAmount) {
+        final BigDecimal discount = Optional.ofNullable(wcLoan.getLoanProductRelatedDetails())
+                .map(WorkingCapitalLoanProductRelatedDetails::getDiscount).orElse(BigDecimal.ZERO);
+        this.totalDiscountFee = discount;
+        this.principal = disbursedAmount.add(discount);
+        this.overpaymentAmount = BigDecimal.ZERO;
+    }
+
+    public BigDecimal getTotalPrincipalDue() {
+        return MathUtil.add(getPrincipal(), getPrincipalAdjustment());
+    }
+
     public BigDecimal getPrincipalOutstanding() {
-        return MathUtil.subtract(getPrincipal(), getPrincipalPaid()).max(BigDecimal.ZERO);
+        return MathUtil.subtract(getTotalPrincipalDue(), getPrincipalPaid()).max(BigDecimal.ZERO);
     }
 
     public BigDecimal getFeeOutstanding() {
@@ -119,7 +141,7 @@ public class WorkingCapitalLoanBalance extends AbstractAuditableWithUTCDateTimeC
     }
 
     public BigDecimal getTotalExpectedRepayment() {
-        return MathUtil.add(getPrincipal()).add(getPenalty()).add(getFee());
+        return MathUtil.add(getPrincipal()).add(getPrincipalAdjustment()).add(getPenalty()).add(getFee());
     }
 
     public BigDecimal getTotalRepayment() {

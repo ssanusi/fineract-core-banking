@@ -32,6 +32,7 @@ import org.apache.fineract.portfolio.workingcapitalloan.accounting.WorkingCapita
 import org.apache.fineract.portfolio.workingcapitalloan.calc.ProjectedAmortizationScheduleModel;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoan;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoanTransaction;
+import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoanTransactionFinder;
 import org.apache.fineract.portfolio.workingcapitalloan.domain.WorkingCapitalLoanTransactionRelation;
 import org.apache.fineract.portfolio.workingcapitalloan.repository.WorkingCapitalLoanTransactionRepository;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,7 @@ public class WorkingCapitalLoanDiscountFeeAmortizationServiceImpl implements Wor
     private final WorkingCapitalLoanAccountingProcessor accountingProcessor;
     private final ExternalIdFactory externalIdFactory;
     private final ProjectedAmortizationScheduleRepositoryWrapper scheduleRepositoryWrapper;
+    private final WorkingCapitalLoanTransactionFinder transactionFinder;
 
     @Override
     @Transactional
@@ -81,14 +83,15 @@ public class WorkingCapitalLoanDiscountFeeAmortizationServiceImpl implements Wor
             return;
         }
 
-        // Charge-off accounting is out of scope here (see the full-discount note above), so amortization is always
-        // posted as not-charged-off.
+        // On a charged-off loan the recognized amortization is routed to the charge-off expense account instead of
+        // discount-fee income (handled by the accounting processor via the isChargedOff flag).
         if (MathUtil.isGreaterThanZero(amortizationAmount)) {
             final WorkingCapitalLoanTransaction amortizationTxn = WorkingCapitalLoanTransaction.discountFeeAmortization(loan,
                     amortizationAmount, transactionDate, externalIdFactory.create());
             transactionRepository.saveAndFlush(amortizationTxn);
             if (loan.getLoanProduct().getAccountingRule().isAccrualWithDeferredRevenueAmortization()) {
-                accountingProcessor.postJournalEntriesForDiscountFeeAmortization(loan, amortizationTxn, false);
+                accountingProcessor.postJournalEntriesForDiscountFeeAmortization(loan, amortizationTxn,
+                        transactionFinder.isAfterActiveChargeOffForAccountingRouting(loan, amortizationTxn));
             }
         } else {
             final BigDecimal adjustmentAmount = amortizationAmount.negate();
@@ -97,7 +100,8 @@ public class WorkingCapitalLoanDiscountFeeAmortizationServiceImpl implements Wor
             linkToTriggeringDiscountAdjustment(loan, adjustmentTxn);
             transactionRepository.saveAndFlush(adjustmentTxn);
             if (loan.getLoanProduct().getAccountingRule().isAccrualWithDeferredRevenueAmortization()) {
-                accountingProcessor.postJournalEntriesForDiscountFeeAmortizationAdjustment(loan, adjustmentTxn, false);
+                accountingProcessor.postJournalEntriesForDiscountFeeAmortizationAdjustment(loan, adjustmentTxn,
+                        transactionFinder.isAfterActiveChargeOffForAccountingRouting(loan, adjustmentTxn));
             }
         }
 
